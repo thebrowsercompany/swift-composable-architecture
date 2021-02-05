@@ -204,21 +204,21 @@ state updates:</p>
     <h3>
         <code>binding(key​Path:​send:​)</code>
     </h3>
-    <html><body><pre class="highlight"><code><span class="keyword">public</span> <span class="keyword">func</span> <span class="function">binding</span>&lt;<span class="variable">LocalState</span>&gt;(<span class="variable">keyPath</span>: <span class="type">WritableKeyPath</span>&lt;<span class="type">State</span>, <span class="type">LocalState</span>&gt;, <span class="variable">send</span> <span class="variable">action</span>: <span class="attribute">@</span><span class="attribute">escaping</span> (<a href="/swift-composable-architecture/FormAction"><span class="type">FormAction</span></a>&lt;<span class="type">State</span>&gt;) -&gt; <span class="type">Action</span>) -&gt; <span class="type">Binding</span>&lt;<span class="type">LocalState</span>&gt; <span class="keyword">where</span> <span class="type">LocalState</span>: <span class="type">Equatable</span></code></pre></body></html>
+    <html><body><pre class="highlight"><code><span class="keyword">public</span> <span class="keyword">func</span> <span class="function">binding</span>&lt;<span class="variable">LocalState</span>&gt;(<span class="variable">keyPath</span>: <span class="type">WritableKeyPath</span>&lt;<span class="type">State</span>, <span class="type">LocalState</span>&gt;, <span class="variable">send</span> <span class="variable">action</span>: <span class="attribute">@</span><span class="attribute">escaping</span> (<a href="/swift-composable-architecture/BindingAction"><span class="type">BindingAction</span></a>&lt;<span class="type">State</span>&gt;) -&gt; <span class="type">Action</span>) -&gt; <span class="type">Binding</span>&lt;<span class="type">LocalState</span>&gt; <span class="keyword">where</span> <span class="type">LocalState</span>: <span class="type">Equatable</span></code></pre></body></html>
 <div class="summary" role="doc-abstract">
     <p>Derives a binding from the store that mutates state at the given writable key path by wrapping
-a <code>FormAction</code> with the store's action type.</p>
+a <code>BindingAction</code> with the store's action type.</p>
 
 </div>
 <div class="discussion">
     <p>For example, a text field binding can be created like this:</p>
 
 <html><body><pre class="highlight"><code><span class="keyword">struct</span> <span class="type">State</span> { <span class="keyword">var</span> <span class="variable">text</span> = <span class="string literal">"</span><span class="string literal"/><span class="string literal">"</span> }
-<span class="keyword">enum</span> <span class="type">Action</span> { <span class="keyword">case</span> <span class="variable">form</span>(<a href="/swift-composable-architecture/FormAction"><span class="type">FormAction</span></a>&lt;<span class="type">State</span>&gt;) }
+<span class="keyword">enum</span> <span class="type">Action</span> { <span class="keyword">case</span> <span class="variable">binding</span>(<a href="/swift-composable-architecture/BindingAction"><span class="type">BindingAction</span></a>&lt;<span class="type">State</span>&gt;) }
 
 <span class="variable">TextField</span>(
   <span class="string literal">"</span><span class="string literal">Enter text</span><span class="string literal">"</span>,
-  <span class="variable">text</span>: <span class="type">viewStore</span>.<span class="type">binding</span>(<span class="variable">keyPath</span>: \.<span class="type">text</span>, <span class="variable">Action</span>.<span class="type">form</span>)
+  <span class="variable">text</span>: <span class="type">viewStore</span>.<span class="type">binding</span>(<span class="variable">keyPath</span>: \.<span class="type">text</span>, <span class="variable">Action</span>.<span class="type">binding</span>)
 )
 </code></pre></body></html>
 </div>
@@ -241,8 +241,8 @@ a <code>FormAction</code> with the store's action type.</p>
 </tr>
 <tr>
     <th>action</th>
-    <td><code class="type">@escaping (Form​Action&lt;State&gt;) -&gt; Action</code></td>
-    <td><p>A function that wraps a form action in the view store's action type.</p>
+    <td><code class="type">@escaping (Binding​Action&lt;State&gt;) -&gt; Action</code></td>
+    <td><p>A function that wraps a binding action in the view store's action type.</p>
 </td>
 </tr>
   </tbody>
@@ -513,7 +513,7 @@ sending actions.</p>
 
     <footer>
         <p>
-    Generated on <time datetime="2021-02-01T20:01:50+0000">February 1, 2021</time> using <a href="https://github.com/SwiftDocOrg/swift-doc">swift-doc</a> <span class="version">1.0.0-beta.5</span>.
+    Generated on <time datetime="2021-02-05T19:10:31+0000">February 5, 2021</time> using <a href="https://github.com/SwiftDocOrg/swift-doc">swift-doc</a> <span class="version">1.0.0-beta.5</span>.
 </p>
     </footer>
 </body>
