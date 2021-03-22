@@ -26,7 +26,7 @@
     <nav>
         <div class="wrapper">
             <h2>On This Page</h2>
-            <ol><li><a href="#relationships">Relationships</a><ul><li><a href="#relationships">Nested Types</a></li><li><a href="#relationships">Conforms To</a></li></ul></li><li><a href="#initializers">Initializers</a><ul><li class="initializer"><a href="#effect.init(_:)">init(_:​)</a></li><li class="initializer"><a href="#effect.init(value:)">init(value:​)</a></li><li class="initializer"><a href="#effect.init(error:)">init(error:​)</a></li></ul></li><li><a href="#properties">Properties</a><ul><li class="variable"><a href="#effect.upstream">upstream</a></li><li class="variable"><a href="#effect.none">none</a></li></ul></li><li><a href="#methods">Methods</a><ul><li class="function"><a href="#effect.receive(subscriber:)">receive(subscriber:​)</a></li><li class="function"><a href="#effect.future(_:)">future(_:​)</a></li><li class="function"><a href="#effect.result(_:)">result(_:​)</a></li><li class="function"><a href="#effect.run(_:)">run(_:​)</a></li><li class="function"><a href="#effect.concatenate(_:)">concatenate(_:​)</a></li><li class="function"><a href="#effect.concatenate(_:)">concatenate(_:​)</a></li><li class="function"><a href="#effect.merge(_:)">merge(_:​)</a></li><li class="function"><a href="#effect.merge(_:)">merge(_:​)</a></li><li class="function"><a href="#effect.fireandforget(_:)">fire​And​Forget(_:​)</a></li><li class="function"><a href="#effect.map(_:)">map(_:​)</a></li><li class="function"><a href="#effect.cancellable(id:cancelinflight:)">cancellable(id:​cancel​InFlight:​)</a></li><li class="function"><a href="#effect.cancel(id:)">cancel(id:​)</a></li><li class="function"><a href="#effect.debounce(id:for:scheduler:options:)">debounce(id:​for:​scheduler:​options:​)</a></li><li class="function"><a href="#effect.async(_:)">async(_:​)</a></li></ul></li></ol>
+            <ol><li><a href="#relationships">Relationships</a><ul><li><a href="#relationships">Nested Types</a></li><li><a href="#relationships">Conforms To</a></li></ul></li><li><a href="#initializers">Initializers</a><ul><li class="initializer"><a href="#effect.init(_:)">init(_:​)</a></li><li class="initializer"><a href="#effect.init(value:)">init(value:​)</a></li><li class="initializer"><a href="#effect.init(error:)">init(error:​)</a></li></ul></li><li><a href="#properties">Properties</a><ul><li class="variable"><a href="#effect.upstream">upstream</a></li><li class="variable"><a href="#effect.none">none</a></li></ul></li><li><a href="#methods">Methods</a><ul><li class="function"><a href="#effect.receive(subscriber:)">receive(subscriber:​)</a></li><li class="function"><a href="#effect.future(_:)">future(_:​)</a></li><li class="function"><a href="#effect.result(_:)">result(_:​)</a></li><li class="function"><a href="#effect.run(_:)">run(_:​)</a></li><li class="function"><a href="#effect.concatenate(_:)">concatenate(_:​)</a></li><li class="function"><a href="#effect.concatenate(_:)">concatenate(_:​)</a></li><li class="function"><a href="#effect.merge(_:)">merge(_:​)</a></li><li class="function"><a href="#effect.merge(_:)">merge(_:​)</a></li><li class="function"><a href="#effect.fireandforget(_:)">fire​And​Forget(_:​)</a></li><li class="function"><a href="#effect.map(_:)">map(_:​)</a></li><li class="function"><a href="#effect.cancellable(id:cancelinflight:)">cancellable(id:​cancel​InFlight:​)</a></li><li class="function"><a href="#effect.cancel(id:)">cancel(id:​)</a></li><li class="function"><a href="#effect.debounce(id:for:scheduler:options:)">debounce(id:​for:​scheduler:​options:​)</a></li><li class="function"><a href="#effect.async(_:)">async(_:​)</a></li><li class="function"><a href="#effect.failing(_:)">failing(_:​)</a></li></ul></li></ol>
         </div>
     </nav>
 
@@ -778,6 +778,107 @@ struct:</p>
     </h3>
     <html><body><pre class="highlight"><code><span class="attribute">@</span><span class="attribute">available</span>(*, <span class="variable">unavailable</span>, <span class="variable">renamed</span>: <span class="string literal">"run"</span>) <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">func</span> <span class="function">async</span>(<span class="keyword">_</span> <span class="variable">work</span>: <span class="attribute">@</span><span class="attribute">escaping</span> (<a href="/swift-composable-architecture/Effect"><span class="type">Effect</span></a>.<span class="type">Subscriber</span>) -&gt; <span class="type">Cancellable</span>) -&gt; <span class="keyword">Self</span></code></pre></body></html>
 </div>
+<div role="article" class="function" id="effect.failing(_:)">
+    <h3>
+        <code>failing(_:​)</code>
+    </h3>
+    <html><body><pre class="highlight"><code><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">func</span> <span class="function">failing</span>(<span class="keyword">_</span> <span class="variable">prefix</span>: <span class="type">String</span>) -&gt; <span class="keyword">Self</span></code></pre></body></html>
+<div class="summary" role="doc-abstract">
+    <p>An effect that causes a test to fail if it runs.</p>
+
+</div>
+<div class="discussion">
+    <p>This effect can provide an additional layer of certainty that a tested code path does not
+execute a particular effect.</p>
+
+<p>For example, let's say we have a very simple counter application, where a user can increment
+and decrement a number. The state and actions are simple enough:</p>
+
+<html><body><pre class="highlight"><code><span class="keyword">struct</span> <span class="type">CounterState</span>: <span class="type">Equatable</span> {
+  <span class="keyword">var</span> <span class="variable">count</span> = <span class="number literal">0</span>
+}
+
+<span class="keyword">enum</span> <span class="type">CounterAction</span>: <span class="type">Equatable</span> {
+  <span class="keyword">case</span> <span class="variable">decrementButtonTapped</span>
+  <span class="keyword">case</span> <span class="variable">incrementButtonTapped</span>
+}
+</code></pre></body></html>
+<p>Let's throw in a side effect. If the user attempts to decrement the counter below zero, the
+application should refuse and play an alert sound instead.</p>
+
+<p>We can model playing a sound in the environment with an effect:</p>
+
+<html><body><pre class="highlight"><code><span class="keyword">struct</span> <span class="type">CounterEnvironment</span> {
+  <span class="keyword">let</span> <span class="variable">playAlertSound</span>: () -&gt; <a href="/swift-composable-architecture/Effect"><span class="type">Effect</span></a>&lt;<span class="type">Never</span>, <span class="type">Never</span>&gt;
+}
+</code></pre></body></html>
+<p>Now that we've defined the domain, we can describe the logic in a reducer:</p>
+
+<html><body><pre class="highlight"><code><span class="keyword">let</span> <span class="variable">counterReducer</span> = <span class="variable">Reducer</span>&lt;
+  <span class="type">CounterState</span>, <span class="type">CounterAction</span>, <span class="type">CounterEnvironment</span>
+&gt; { <span class="variable">state</span>, <span class="variable">action</span>, <span class="variable">environment</span> <span class="keyword">in</span>
+  <span class="keyword">switch</span> <span class="variable">action</span> {
+  <span class="keyword">case</span> .<span class="variable">decrementButtonTapped</span>:
+    <span class="keyword">if</span> <span class="variable">state</span> &gt; <span class="number literal">0</span> {
+      <span class="variable">state</span>.<span class="type">count</span> -= <span class="number literal">0</span>
+      <span class="keyword">return</span> .<span class="variable">none</span>
+    } <span class="keyword">else</span> {
+      <span class="keyword">return</span> <span class="variable">environment</span>.<span class="type">playAlertSound</span>()
+        .<span class="type">fireAndForget</span>()
+    }
+
+  <span class="keyword">case</span> .<span class="variable">incrementButtonTapped</span>:
+    <span class="type">state</span>.<span class="type">count</span> += <span class="number literal">1</span>
+    <span class="keyword">return</span> .<span class="variable">non</span>
+  }
+}
+</code></pre></body></html>
+<p>Let's say we want to write a test for the increment path. We can see in the reducer that it
+should never play an alert, so we can configure the environment with an effect that will
+fail if it ever executes:</p>
+
+<html><body><pre class="highlight"><code><span class="keyword">func</span> <span class="function">testIncrement</span>() {
+  <span class="keyword">let</span> <span class="variable">store</span> = <span class="variable">TestStore</span>(
+    <span class="variable">initialState</span>: <span class="type">CounterState</span>(<span class="variable">count</span>: <span class="number literal">0</span>)
+    <span class="variable">reducer</span>: <span class="type">counterReducer</span>,
+    <span class="variable">environment</span>: <span class="type">CounterEnvironment</span>(
+      <span class="variable">playSound</span>: .<span class="variable">failing</span>(<span class="string literal">"</span><span class="string literal">playSound</span><span class="string literal">"</span>)
+    )
+  )
+
+  <span class="variable">store</span>.<span class="type">send</span>(.<span class="variable">increment</span>) {
+    <span class="variable">$0</span>.<span class="type">count</span> = <span class="number literal">1</span>
+  }
+}
+</code></pre></body></html>
+<p>By using a <code>.failing</code> effect in our environment we have strengthened the assertion and made
+the test easier to understand at the same time. We can see, without consulting the reducer
+itself, that this particular action should not access this effect.</p>
+
+</div>
+<h4>Parameters</h4>
+
+<table class="parameters">
+  <thead hidden>
+  <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+  </tr>
+  </thead>
+  <tbody>
+    <tr>
+    <th>prefix</th>
+    <td><code class="type">String</code></td>
+    <td><p>A string that identifies this scheduler and will prefix all failure messages.</p>
+</td>
+</tr>
+  </tbody>
+</table>
+  <h4>Returns</h4>
+  <p>An effect that causes a test to fail if it runs.</p>
+
+</div>
     </section>
 
 
@@ -787,7 +888,7 @@ struct:</p>
 
     <footer>
         <p>
-    Generated on <time datetime="2021-03-08T16:13:53+0000">March 8, 2021</time> using <a href="https://github.com/SwiftDocOrg/swift-doc">swift-doc</a> <span class="version">1.0.0-beta.5</span>.
+    Generated on <time datetime="2021-03-22T18:02:14+0000">March 22, 2021</time> using <a href="https://github.com/SwiftDocOrg/swift-doc">swift-doc</a> <span class="version">1.0.0-beta.5</span>.
 </p>
     </footer>
 </body>
