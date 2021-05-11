@@ -10,6 +10,7 @@ public final class Store<State, Action> {
   var state: CurrentValueSubject<State, Never>
   var effectCancellables: [UUID: AnyCancellable] = [:]
   private var isSending = false
+  private var isProcessingEffects = false
   private var parentCancellable: AnyCancellable?
   private let reducer: (inout State, Action) -> Effect<Action, Never>
   private var synchronousActionsToSend: [Action] = []
@@ -270,14 +271,14 @@ public final class Store<State, Action> {
       var didComplete = false
       let uuid = UUID()
 
-      var isProcessingEffects = true
+      isProcessingEffects = true
       let effectCancellable = effect.sink(
         receiveCompletion: { [weak self] _ in
           didComplete = true
           self?.effectCancellables[uuid] = nil
         },
         receiveValue: { [weak self] action in
-          if isProcessingEffects {
+          if self?.isProcessingEffects ?? false {
             self?.synchronousActionsToSend.append(action)
           } else {
             self?.send(action)
