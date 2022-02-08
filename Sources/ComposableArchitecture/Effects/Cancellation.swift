@@ -29,7 +29,7 @@ extension Effect {
   ///     canceled before starting this new one.
   /// - Returns: A new effect that is capable of being canceled by an identifier.
   public func cancellable(id: AnyHashable, cancelInFlight: Bool = false) -> Effect {
-    let effect = Deferred {
+    Deferred {
       ()
         -> Publishers.HandleEvents<
           Publishers.PrefixUntilOutput<Self, PassthroughSubject<Void, Never>>
@@ -37,12 +37,17 @@ extension Effect {
       cancellablesLock.lock()
       defer { cancellablesLock.unlock() }
 
+      if cancelInFlight {
+        cancellationCancellables[id]?.forEach { $0.cancel() }
+      }
+
       let cancellationSubject = PassthroughSubject<Void, Never>()
 
       var cancellationCancellable: AnyCancellable!
       cancellationCancellable = AnyCancellable {
         cancellablesLock.sync {
           cancellationSubject.send(())
+          cancellationSubject.send(completion: .finished)
           cancellationCancellables[id]?.remove(cancellationCancellable)
           if cancellationCancellables[id]?.isEmpty == .some(true) {
             cancellationCancellables[id] = nil
@@ -50,19 +55,20 @@ extension Effect {
         }
       }
 
-      cancellationCancellables[id, default: []].insert(
-        cancellationCancellable
-      )
-
       return self.prefix(untilOutputFrom: cancellationSubject)
         .handleEvents(
+          receiveSubscription: { _ in
+            _ = cancellablesLock.sync {
+              cancellationCancellables[id, default: []].insert(
+                cancellationCancellable
+              )
+            }
+          },
           receiveCompletion: { _ in cancellationCancellable.cancel() },
           receiveCancel: cancellationCancellable.cancel
         )
     }
     .eraseToEffect()
-
-    return cancelInFlight ? .concatenate(.cancel(id: id), effect) : effect
   }
 
   /// An effect that will cancel any currently in-flight effect with the given identifier.
