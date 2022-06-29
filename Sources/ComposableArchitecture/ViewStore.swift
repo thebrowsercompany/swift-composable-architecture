@@ -124,6 +124,8 @@ public final class ViewStore<State, Action>: ObservableObject {
       store.send($0, instrumentation: instrumentation)
     }
     self._state = CurrentValueRelay(())
+
+    instrumentation.viewStoreCreated?(self as AnyObject, file, line)
   }
 
   internal init(_ viewStore: ViewStore<State, Action>, instrumentation: Instrumentation = .shared, file: StaticString = #file, line: UInt = #line) {
