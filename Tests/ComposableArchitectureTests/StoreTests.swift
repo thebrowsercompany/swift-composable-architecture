@@ -511,12 +511,12 @@ final class StoreTests: XCTestCase {
         removeDuplicates: ==
       )
       XCTAssertEqual(scopeCount, 1)
-      parentStore.send(.noop)
+      _ = parentStore.send(.noop)
       XCTAssertEqual(scopeCount, 1)
-      parentStore.send(.updatePlace("Washington"))
+      _ = parentStore.send(.updatePlace("Washington"))
       XCTAssertEqual(scopeCount, 2)
-      childStore.send(.noop)
-      leafStore.send(.noop)
+      _ = childStore.send(.noop)
+      _ = leafStore.send(.noop)
   }
   
   func testOldStateReplaysInViewStoreSubscriber() {

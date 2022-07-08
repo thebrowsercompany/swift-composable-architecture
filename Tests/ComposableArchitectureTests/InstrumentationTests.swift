@@ -27,7 +27,7 @@ final class InstrumentationTests: XCTestCase {
 
 
     let store = Store(initialState: 0, reducer: Reducer<Int, Void, Void>.empty, environment: ())
-    store.send((), instrumentation: inst)
+    _ = store.send((), instrumentation: inst)
 
     XCTAssertEqual(2, sendCalls)
     XCTAssertEqual(2, changeStateCalls)
