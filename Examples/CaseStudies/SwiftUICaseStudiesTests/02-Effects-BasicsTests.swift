@@ -3,16 +3,16 @@ import XCTest
 
 @testable import SwiftUICaseStudies
 
+@MainActor
 class EffectsBasicsTests: XCTestCase {
-  func testCountDown() {
+  func testCountDown() async {
     let store = TestStore(
       initialState: EffectsBasicsState(),
       reducer: effectsBasicsReducer,
-      environment: EffectsBasicsEnvironment(
-        fact: .failing,
-        mainQueue: .immediate
-      )
+      environment: .unimplemented
     )
+
+    store.environment.mainQueue = .immediate
 
     store.send(.incrementButtonTapped) {
       $0.count = 1
@@ -20,20 +20,20 @@ class EffectsBasicsTests: XCTestCase {
     store.send(.decrementButtonTapped) {
       $0.count = 0
     }
-    store.receive(.incrementButtonTapped) {
+    await store.receive(.incrementButtonTapped) {
       $0.count = 1
     }
   }
 
-  func testNumberFact() {
+  func testNumberFact() async {
     let store = TestStore(
       initialState: EffectsBasicsState(),
       reducer: effectsBasicsReducer,
-      environment: EffectsBasicsEnvironment(
-        fact: FactClient(fetch: { n in Effect(value: "\(n) is a good number Brent") }),
-        mainQueue: .immediate
-      )
+      environment: .unimplemented
     )
+
+    store.environment.fact.fetch = { "\($0) is a good number Brent" }
+    store.environment.mainQueue = .immediate
 
     store.send(.incrementButtonTapped) {
       $0.count = 1
@@ -41,9 +41,16 @@ class EffectsBasicsTests: XCTestCase {
     store.send(.numberFactButtonTapped) {
       $0.isNumberFactRequestInFlight = true
     }
-    store.receive(.numberFactResponse(.success("1 is a good number Brent"))) {
+    await store.receive(.numberFactResponse(.success("1 is a good number Brent"))) {
       $0.isNumberFactRequestInFlight = false
       $0.numberFact = "1 is a good number Brent"
     }
   }
+}
+
+extension EffectsBasicsEnvironment {
+  static let unimplemented = Self(
+    fact: .unimplemented,
+    mainQueue: .unimplemented
+  )
 }

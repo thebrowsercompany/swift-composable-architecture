@@ -4,16 +4,16 @@ import XCTest
 
 @testable import SwiftUICaseStudies
 
+@MainActor
 class EffectsCancellationTests: XCTestCase {
-  func testTrivia_SuccessfulRequest() {
+  func testTrivia_SuccessfulRequest() async {
     let store = TestStore(
       initialState: EffectsCancellationState(),
       reducer: effectsCancellationReducer,
-      environment: EffectsCancellationEnvironment(
-        fact: FactClient(fetch: { n in Effect(value: "\(n) is a good number Brent") }),
-        mainQueue: .immediate
-      )
+      environment: .unimplemented
     )
+
+    store.environment.fact.fetch = { "\($0) is a good number Brent" }
 
     store.send(.stepperChanged(1)) {
       $0.count = 1
@@ -24,26 +24,26 @@ class EffectsCancellationTests: XCTestCase {
     store.send(.triviaButtonTapped) {
       $0.isTriviaRequestInFlight = true
     }
-    store.receive(.triviaResponse(.success("0 is a good number Brent"))) {
+    await store.receive(.triviaResponse(.success("0 is a good number Brent"))) {
       $0.currentTrivia = "0 is a good number Brent"
       $0.isTriviaRequestInFlight = false
     }
   }
 
-  func testTrivia_FailedRequest() {
+  func testTrivia_FailedRequest() async {
+    struct FactError: Equatable, Error {}
     let store = TestStore(
       initialState: EffectsCancellationState(),
       reducer: effectsCancellationReducer,
-      environment: EffectsCancellationEnvironment(
-        fact: FactClient(fetch: { _ in Fail(error: FactClient.Error()).eraseToEffect() }),
-        mainQueue: .immediate
-      )
+      environment: .unimplemented
     )
+
+    store.environment.fact.fetch = { _ in throw FactError() }
 
     store.send(.triviaButtonTapped) {
       $0.isTriviaRequestInFlight = true
     }
-    store.receive(.triviaResponse(.failure(FactClient.Error()))) {
+    await store.receive(.triviaResponse(.failure(FactError()))) {
       $0.isTriviaRequestInFlight = false
     }
   }
@@ -55,15 +55,13 @@ class EffectsCancellationTests: XCTestCase {
   // test to fail, showing that we are exhaustively asserting that the effect truly is canceled and
   // will never emit.
   func testTrivia_CancelButtonCancelsRequest() {
-    let scheduler = DispatchQueue.test
     let store = TestStore(
       initialState: EffectsCancellationState(),
       reducer: effectsCancellationReducer,
-      environment: EffectsCancellationEnvironment(
-        fact: FactClient(fetch: { n in Effect(value: "\(n) is a good number Brent") }),
-        mainQueue: scheduler.eraseToAnyScheduler()
-      )
+      environment: .unimplemented
     )
+
+    store.environment.fact.fetch = { "\($0) is a good number Brent" }
 
     store.send(.triviaButtonTapped) {
       $0.isTriviaRequestInFlight = true
@@ -71,19 +69,16 @@ class EffectsCancellationTests: XCTestCase {
     store.send(.cancelButtonTapped) {
       $0.isTriviaRequestInFlight = false
     }
-    scheduler.run()
   }
 
   func testTrivia_PlusMinusButtonsCancelsRequest() {
-    let scheduler = DispatchQueue.test
     let store = TestStore(
       initialState: EffectsCancellationState(),
       reducer: effectsCancellationReducer,
-      environment: EffectsCancellationEnvironment(
-        fact: FactClient(fetch: { n in Effect(value: "\(n) is a good number Brent") }),
-        mainQueue: scheduler.eraseToAnyScheduler()
-      )
+      environment: .unimplemented
     )
+
+    store.environment.fact.fetch = { "\($0) is a good number Brent" }
 
     store.send(.triviaButtonTapped) {
       $0.isTriviaRequestInFlight = true
@@ -92,6 +87,11 @@ class EffectsCancellationTests: XCTestCase {
       $0.count = 1
       $0.isTriviaRequestInFlight = false
     }
-    scheduler.advance()
   }
+}
+
+extension EffectsCancellationEnvironment {
+  static let unimplemented = Self(
+    fact: .unimplemented
+  )
 }

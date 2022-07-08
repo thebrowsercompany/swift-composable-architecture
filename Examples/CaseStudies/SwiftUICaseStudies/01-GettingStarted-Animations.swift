@@ -1,6 +1,6 @@
 import Combine
 import ComposableArchitecture
-import SwiftUI
+@preconcurrency import SwiftUI
 
 private let readMe = """
   This screen demonstrates how changes to application state can drive animations. Because the \
@@ -19,25 +19,6 @@ private let readMe = """
   toggle at the bottom of the screen.
   """
 
-extension Effect where Failure == Never {
-  public static func keyFrames<S: Scheduler>(
-    values: [(output: Output, duration: S.SchedulerTimeType.Stride)],
-    scheduler: S
-  ) -> Self {
-    .concatenate(
-      values
-        .enumerated()
-        .map { index, animationState in
-          index == 0
-            ? Effect(value: animationState.output)
-            : Just(animationState.output)
-              .delay(for: values[index - 1].duration, scheduler: scheduler)
-              .eraseToEffect()
-        }
-    )
-  }
-}
-
 struct AnimationsState: Equatable {
   var alert: AlertState<AnimationsAction>? = nil
   var circleCenter = CGPoint(x: 50, y: 50)
@@ -45,7 +26,7 @@ struct AnimationsState: Equatable {
   var isCircleScaled = false
 }
 
-enum AnimationsAction: Equatable {
+enum AnimationsAction: Equatable, Sendable {
   case circleScaleToggleChanged(Bool)
   case dismissAlert
   case rainbowButtonTapped
@@ -61,6 +42,7 @@ struct AnimationsEnvironment {
 
 let animationsReducer = Reducer<AnimationsState, AnimationsAction, AnimationsEnvironment> {
   state, action, environment in
+  struct CancelId {}
 
   switch action {
   case let .circleScaleToggleChanged(isScaled):
@@ -72,11 +54,16 @@ let animationsReducer = Reducer<AnimationsState, AnimationsAction, AnimationsEnv
     return .none
 
   case .rainbowButtonTapped:
-    return .keyFrames(
-      values: [Color.red, .blue, .green, .orange, .pink, .purple, .yellow, .white]
-        .map { (output: .setColor($0), duration: 1) },
-      scheduler: environment.mainQueue.animation(.linear)
-    )
+    return .run { send in
+      let colors = [Color.red, .blue, .green, .orange, .pink, .purple, .yellow, .white]
+      for (index, color) in colors.enumerated() {
+        if index > 0 {
+          try await environment.mainQueue.sleep(for: 1)
+        }
+        await send(.setColor(color), animation: .linear)
+      }
+    }
+    .cancellable(id: CancelId.self)
 
   case .resetButtonTapped:
     state.alert = AlertState(
@@ -91,7 +78,7 @@ let animationsReducer = Reducer<AnimationsState, AnimationsAction, AnimationsEnv
 
   case .resetConfirmationButtonTapped:
     state = AnimationsState()
-    return .none
+    return .cancel(id: CancelId.self)
 
   case let .setColor(color):
     state.circleColor = color

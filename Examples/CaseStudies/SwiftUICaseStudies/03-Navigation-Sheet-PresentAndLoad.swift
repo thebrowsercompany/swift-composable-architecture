@@ -41,10 +41,11 @@ let presentAndLoadReducer =
       switch action {
       case .setSheet(isPresented: true):
         state.isSheetPresented = true
-        return Effect(value: .setSheetIsPresentedDelayCompleted)
-          .delay(for: 1, scheduler: environment.mainQueue)
-          .eraseToEffect()
-          .cancellable(id: CancelId.self)
+        return .task {
+          try? await environment.mainQueue.sleep(for: 1)
+          return .setSheetIsPresentedDelayCompleted
+        }
+        .cancellable(id: CancelId.self)
 
       case .setSheet(isPresented: false):
         state.isSheetPresented = false
@@ -67,10 +68,11 @@ struct PresentAndLoadView: View {
   var body: some View {
     WithViewStore(self.store) { viewStore in
       Form {
-        Section(header: Text(readMe)) {
-          Button("Load optional counter") {
-            viewStore.send(.setSheet(isPresented: true))
-          }
+        Section {
+          AboutView(readMe: readMe)
+        }
+        Button("Load optional counter") {
+          viewStore.send(.setSheet(isPresented: true))
         }
       }
       .sheet(

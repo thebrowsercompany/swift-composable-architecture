@@ -34,7 +34,7 @@ enum AppAction: Equatable {
 
 struct AppEnvironment {
   var mainQueue: AnySchedulerOf<DispatchQueue>
-  var uuid: () -> UUID
+  var uuid: @Sendable () -> UUID
 }
 
 let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
@@ -79,9 +79,10 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
 
       state.todos.move(fromOffsets: source, toOffset: destination)
 
-      return Effect(value: .sortCompletedTodos)
-        .delay(for: .milliseconds(100), scheduler: environment.mainQueue)
-        .eraseToEffect()
+      return .task {
+        try? await environment.mainQueue.sleep(for: .milliseconds(100))
+        return .sortCompletedTodos
+      }
 
     case .sortCompletedTodos:
       state.todos.sort { $1.isComplete && !$0.isComplete }
@@ -89,7 +90,7 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
 
     case .todo(id: _, action: .checkBoxToggled):
       enum TodoCompletionId {}
-      return Effect(value: .sortCompletedTodos)
+      return .task { .sortCompletedTodos }
         .debounce(id: TodoCompletionId.self, for: 1, scheduler: environment.mainQueue.animation())
 
     case .todo:
@@ -192,7 +193,7 @@ struct AppView_Previews: PreviewProvider {
         reducer: appReducer,
         environment: AppEnvironment(
           mainQueue: .main,
-          uuid: UUID.init
+          uuid: { UUID() }
         )
       )
     )

@@ -34,7 +34,7 @@ enum MultipleDependenciesAction: Equatable {
 }
 
 struct MultipleDependenciesEnvironment {
-  var fetchNumber: () -> Effect<Int, Never>
+  var fetchNumber: @Sendable () async -> Int
 }
 
 let multipleDependenciesReducer = Reducer<
@@ -45,9 +45,10 @@ let multipleDependenciesReducer = Reducer<
 
   switch action {
   case .alertButtonTapped:
-    return Effect(value: .alertDelayReceived)
-      .delay(for: 1, scheduler: environment.mainQueue)
-      .eraseToEffect()
+    return .task {
+      try? await environment.mainQueue.sleep(for: 1)
+      return .alertDelayReceived
+    }
 
   case .alertDelayReceived:
     state.alert = AlertState(title: TextState("Here's an alert after a delay!"))
@@ -63,8 +64,7 @@ let multipleDependenciesReducer = Reducer<
 
   case .fetchNumberButtonTapped:
     state.isFetchInFlight = true
-    return environment.fetchNumber()
-      .map(MultipleDependenciesAction.fetchNumberResponse)
+    return .task { .fetchNumberResponse(await environment.fetchNumber()) }
 
   case let .fetchNumberResponse(number):
     state.isFetchInFlight = false
@@ -150,9 +150,8 @@ struct MultipleDependenciesView_Previews: PreviewProvider {
           environment: .live(
             environment: MultipleDependenciesEnvironment(
               fetchNumber: {
-                Effect(value: Int.random(in: 1...1_000))
-                  .delay(for: 1, scheduler: DispatchQueue.main)
-                  .eraseToEffect()
+                try? await Task.sleep(nanoseconds: NSEC_PER_SEC)
+                return Int.random(in: 1...1_000)
               }
             )
           )
@@ -164,10 +163,10 @@ struct MultipleDependenciesView_Previews: PreviewProvider {
 
 @dynamicMemberLookup
 struct SystemEnvironment<Environment> {
-  var date: () -> Date
+  var date: @Sendable () -> Date
   var environment: Environment
   var mainQueue: AnySchedulerOf<DispatchQueue>
-  var uuid: () -> UUID
+  var uuid: @Sendable () -> UUID
 
   subscript<Dependency>(
     dynamicMember keyPath: WritableKeyPath<Environment, Dependency>
@@ -182,10 +181,10 @@ struct SystemEnvironment<Environment> {
   /// - Returns: A new system environment.
   static func live(environment: Environment) -> Self {
     Self(
-      date: Date.init,
+      date: { Date() },
       environment: environment,
       mainQueue: .main,
-      uuid: UUID.init
+      uuid: { UUID() }
     )
   }
 
@@ -202,21 +201,21 @@ struct SystemEnvironment<Environment> {
   }
 }
 
+extension SystemEnvironment: Sendable where Environment: Sendable {}
+
 #if DEBUG
   import XCTestDynamicOverlay
 
   extension SystemEnvironment {
-    static func failing(
-      date: @escaping () -> Date = {
-        XCTFail("date dependency is unimplemented.")
-        return Date()
-      },
+    static func unimplemented(
+      date: @escaping @Sendable () -> Date = XCTUnimplemented(
+        "\(Self.self).date", placeholder: Date()
+      ),
       environment: Environment,
-      mainQueue: AnySchedulerOf<DispatchQueue> = .failing,
-      uuid: @escaping () -> UUID = {
-        XCTFail("UUID dependency is unimplemented.")
-        return UUID()
-      }
+      mainQueue: AnySchedulerOf<DispatchQueue> = .unimplemented,
+      uuid: @escaping @Sendable () -> UUID = XCTUnimplemented(
+        "\(Self.self).uuid", placeholder: UUID()
+      )
     ) -> Self {
       Self(
         date: date,

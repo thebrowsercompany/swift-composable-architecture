@@ -55,11 +55,11 @@ let navigateAndLoadListReducer =
 
       case let .setNavigation(selection: .some(id)):
         state.selection = Identified(nil, id: id)
-
-        return Effect(value: .setNavigationSelectionDelayCompleted)
-          .delay(for: 1, scheduler: environment.mainQueue)
-          .eraseToEffect()
-          .cancellable(id: CancelId.self)
+        return .task {
+          try? await environment.mainQueue.sleep(for: 1)
+          return .setNavigationSelectionDelayCompleted
+        }
+        .cancellable(id: CancelId.self, cancelInFlight: true)
 
       case .setNavigation(selection: .none):
         if let selection = state.selection, let count = selection.value?.count {
@@ -82,27 +82,28 @@ struct NavigateAndLoadListView: View {
   var body: some View {
     WithViewStore(self.store) { viewStore in
       Form {
-        Section(header: Text(readMe)) {
-          ForEach(viewStore.rows) { row in
-            NavigationLink(
-              destination: IfLetStore(
-                self.store.scope(
-                  state: \.selection?.value,
-                  action: NavigateAndLoadListAction.counter
-                )
-              ) {
-                CounterView(store: $0)
-              } else: {
-                ProgressView()
-              },
-              tag: row.id,
-              selection: viewStore.binding(
-                get: \.selection?.id,
-                send: NavigateAndLoadListAction.setNavigation(selection:)
+        Section {
+          AboutView(readMe: readMe)
+        }
+        ForEach(viewStore.rows) { row in
+          NavigationLink(
+            destination: IfLetStore(
+              self.store.scope(
+                state: \.selection?.value,
+                action: NavigateAndLoadListAction.counter
               )
             ) {
-              Text("Load optional counter that starts from \(row.count)")
-            }
+              CounterView(store: $0)
+            } else: {
+              ProgressView()
+            },
+            tag: row.id,
+            selection: viewStore.binding(
+              get: \.selection?.id,
+              send: NavigateAndLoadListAction.setNavigation(selection:)
+            )
+          ) {
+            Text("Load optional counter that starts from \(row.count)")
           }
         }
       }

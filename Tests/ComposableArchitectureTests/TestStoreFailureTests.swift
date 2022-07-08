@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import XCTest
 
+@MainActor
 class TestStoreFailureTests: XCTestCase {
   func testNoStateChangeFailure() {
     enum Action { case first, second }
@@ -16,7 +17,7 @@ class TestStoreFailureTests: XCTestCase {
     )
 
     XCTExpectFailure {
-      store.send(.first) { _ = $0 }
+      _ = store.send(.first) { _ = $0 }
     } issueMatcher: {
       $0.compactDescription == """
         Expected state to change, but no change occurred.
@@ -49,7 +50,7 @@ class TestStoreFailureTests: XCTestCase {
     )
 
     XCTExpectFailure {
-      store.send(()) { $0.count = 0 }
+      _ = store.send(()) { $0.count = 0 }
     } issueMatcher: {
       $0.compactDescription == """
         A state change does not match expectation: …
@@ -72,7 +73,7 @@ class TestStoreFailureTests: XCTestCase {
       environment: ()
     )
 
-    XCTExpectFailure {
+    _ = XCTExpectFailure {
       store.send(())
     } issueMatcher: {
       $0.compactDescription == """
@@ -164,6 +165,10 @@ class TestStoreFailureTests: XCTestCase {
         To fix, inspect any effects the reducer returns for this action and ensure that all of \
         them complete by the end of the test. There are a few reasons why an effect may not have \
         completed:
+
+        • If using async/await in your effect, it may need a little bit of time to properly \
+        finish. To fix you can capture the task returned from sending an action and await its \
+        completion by invoking the "finish" method at then end of your test.
 
         • If an effect uses a scheduler (via "receive(on:)", "delay", "debounce", etc.), make sure \
         that you wait enough time for the scheduler to perform the effect. If you are using a test \
@@ -258,7 +263,7 @@ class TestStoreFailureTests: XCTestCase {
     )
 
     XCTExpectFailure {
-      store.send(()) { _ in
+      _ = store.send(()) { _ in
         struct SomeError: Error {}
         throw SomeError()
       }

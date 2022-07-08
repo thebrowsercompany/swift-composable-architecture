@@ -99,19 +99,21 @@
   ///
   /// struct SearchEnvironment {
   ///   var mainQueue: AnySchedulerOf<DispatchQueue>
-  ///   var request: (String) -> Effect<[String], Never>
+  ///   var request: (String) async throws -> [String]
   /// }
   ///
   /// let searchReducer = Reducer<SearchState, SearchAction, SearchEnvironment> {
   ///   state, action, environment in
-  ///
-  ///     enum SearchId {}
-  ///
   ///     switch action {
   ///     case let .queryChanged(query):
+  ///       enum SearchId {}
+  ///
   ///       state.query = query
-  ///       return environment.request(self.query)
-  ///         .debounce(id: SearchId.self, for: 0.5, scheduler: environment.mainQueue)
+  ///       return .run { send in
+  ///         guard let results = try? await environment.request(query) else { return }
+  ///         send(.response(results))
+  ///       }
+  ///       .debounce(id: SearchId.self, for: 0.5, scheduler: environment.mainQueue)
   ///
   ///     case let .response(results):
   ///       state.results = results
@@ -124,16 +126,16 @@
   ///
   /// ```swift
   /// // Create a test dispatch scheduler to control the timing of effects
-  /// let scheduler = DispatchQueue.test
+  /// let mainQueue = DispatchQueue.test
   ///
   /// let store = TestStore(
   ///   initialState: SearchState(),
   ///   reducer: searchReducer,
   ///   environment: SearchEnvironment(
   ///     // Wrap the test scheduler in a type-erased scheduler
-  ///     mainQueue: scheduler.eraseToAnyScheduler(),
+  ///     mainQueue: mainQueue.eraseToAnyScheduler(),
   ///     // Simulate a search response with one item
-  ///     request: { _ in Effect(value: ["Composable Architecture"]) }
+  ///     request: { ["Composable Architecture"] }
   ///   )
   /// )
   ///
@@ -143,21 +145,21 @@
   ///   $0.query = "c"
   /// }
   ///
-  /// // Advance the scheduler by a period shorter than the debounce
-  /// scheduler.advance(by: 0.25)
+  /// // Advance the queue by a period shorter than the debounce
+  /// await mainQueue.advance(by: 0.25)
   ///
   /// // Change the query again
   /// store.send(.searchFieldChanged("co") {
   ///   $0.query = "co"
   /// }
   ///
-  /// // Advance the scheduler by a period shorter than the debounce
-  /// scheduler.advance(by: 0.25)
+  /// // Advance the queue by a period shorter than the debounce
+  /// await mainQueue.advance(by: 0.25)
   /// // Advance the scheduler to the debounce
-  /// scheduler.advance(by: 0.25)
+  /// await scheduler.advance(by: 0.25)
   ///
   /// // Assert that the expected response is received
-  /// store.receive(.response(["Composable Architecture"])) {
+  /// await store.receive(.response(["Composable Architecture"])) {
   ///   // Assert that state updates accordingly
   ///   $0.results = ["Composable Architecture"]
   /// }
@@ -177,8 +179,11 @@
     /// The current state.
     ///
     /// When read from a trailing closure assertion in ``send(_:_:file:line:)`` or
-    /// ``receive(_:_:file:line:)``, it will equal the `inout` state passed to the closure.
+    /// ``receive(_:timeout:_:file:line:)``, it will equal the `inout` state passed to the closure.
     public private(set) var state: State
+
+    /// The timeout to await for in-flight effects.
+    public var timeout: UInt64
 
     private let file: StaticString
     private let fromLocalAction: (LocalAction) -> Action
@@ -207,6 +212,7 @@
       self.state = initialState
       self.snapshotState = initialState
       self.toLocalState = toLocalState
+      self.timeout = 5 * NSEC_PER_MSEC
 
       self.store = Store(
         initialState: initialState,
@@ -226,9 +232,7 @@
           return
             effects
             .handleEvents(
-              receiveSubscription: { [weak self] _ in
-                self?.inFlightEffects.insert(effect)
-              },
+              receiveSubscription: { [weak self] _ in self?.inFlightEffects.insert(effect) },
               receiveCompletion: { [weak self] _ in self?.inFlightEffects.remove(effect) },
               receiveCancel: { [weak self] in self?.inFlightEffects.remove(effect) }
             )
@@ -237,6 +241,51 @@
         },
         environment: ()
       )
+    }
+
+    /// Asserts all in-flight effects have finished.
+    ///
+    /// - Parameter nanoseconds: The amount of time to wait before asserting.
+    @MainActor
+    public func finish(
+      timeout nanoseconds: UInt64? = nil,
+      file: StaticString = #file,
+      line: UInt = #line
+    ) async {
+      let nanoseconds = nanoseconds ?? self.timeout
+      let start = DispatchTime.now().uptimeNanoseconds
+      await Task.megaYield()
+      while !self.inFlightEffects.isEmpty {
+        guard start.distance(to: DispatchTime.now().uptimeNanoseconds) < nanoseconds
+        else {
+          let timeoutMessage =
+            nanoseconds != self.self.timeout
+            ? #"try increasing the duration of this assertion's "timeout""#
+            : #"configure this assertion with an explicit "timeout""#
+          let suggestion = """
+            There are effects in-flight. If the effect that delivers this action uses a \
+            scheduler (via "receive(on:)", "delay", "debounce", etc.), make sure that you wait \
+            enough time for the scheduler to perform the effect. If you are using a test \
+            scheduler, advance the scheduler so that the effects may complete, or consider using \
+            an immediate scheduler to immediately perform the effect instead.
+
+            If you are not yet using a scheduler, or can not use a scheduler, \(timeoutMessage).
+            """
+
+          XCTFail(
+            """
+            Expected effects to finish, but there are still effects in-flight\
+            \(nanoseconds > 0 ? " after \(Double(nanoseconds)/Double(NSEC_PER_SEC)) seconds" : "").
+
+            \(suggestion)
+            """,
+            file: file,
+            line: line
+          )
+          return
+        }
+        await Task.yield()
+      }
     }
 
     deinit {
@@ -258,6 +307,7 @@
         )
       }
       for effect in self.inFlightEffects {
+        // TODO: Add remediation item for using TestStoreTask
         XCTFail(
           """
           An effect returned for this action is still running. It must complete before the end of \
@@ -266,6 +316,10 @@
           To fix, inspect any effects the reducer returns for this action and ensure that all of \
           them complete by the end of the test. There are a few reasons why an effect may not have \
           completed:
+
+          • If using async/await in your effect, it may need a little bit of time to properly \
+          finish. To fix you can capture the task returned from sending an action and await its \
+          completion by invoking the "finish" method at then end of your test.
 
           • If an effect uses a scheduler (via "receive(on:)", "delay", "debounce", etc.), make \
           sure that you wait enough time for the scheduler to perform the effect. If you are using \
@@ -354,12 +408,13 @@
     ///     store. The mutable state sent to this closure must be modified to match the state of the
     ///     store after processing the given action. Do not provide a closure if no change is
     ///     expected.
+    @discardableResult
     public func send(
       _ action: LocalAction,
       _ updateExpectingResult: ((inout LocalState) throws -> Void)? = nil,
       file: StaticString = #file,
       line: UInt = #line
-    ) {
+    ) -> TestStoreTask {
       if !self.receivedActions.isEmpty {
         var actions = ""
         customDump(self.receivedActions.map(\.action), to: &actions)
@@ -375,7 +430,7 @@
       }
       var expectedState = self.toLocalState(self.state)
       let previousState = self.state
-      self.store.send(.init(origin: .send(action), file: file, line: line))
+      let task = self.store.send(.init(origin: .send(action), file: file, line: line))
       do {
         let currentState = self.state
         self.state = previousState
@@ -394,6 +449,8 @@
       if "\(self.file)" == "\(file)" {
         self.line = line
       }
+
+      return .init(rawValue: task, timeout: self.timeout)
     }
 
     static func expectedStateShouldMatch(
@@ -456,6 +513,10 @@
     ///     store. The mutable state sent to this closure must be modified to match the state of the
     ///     store after processing the given action. Do not provide a closure if no change is
     ///     expected.
+    @available(iOS, deprecated: 9999.0, message: "Call the async-friendly 'receive' instead.")
+    @available(macOS, deprecated: 9999.0, message: "Call the async-friendly 'receive' instead.")
+    @available(tvOS, deprecated: 9999.0, message: "Call the async-friendly 'receive' instead.")
+    @available(watchOS, deprecated: 9999.0, message: "Call the async-friendly 'receive' instead.")
     public func receive(
       _ expectedAction: Action,
       _ updateExpectingResult: ((inout LocalState) throws -> Void)? = nil,
@@ -473,16 +534,17 @@
       }
       let (receivedAction, state) = self.receivedActions.removeFirst()
       if expectedAction != receivedAction {
-        let difference =
+        let difference = TaskResultDebugging.$emitRuntimeWarnings.withValue(false) {
           diff(expectedAction, receivedAction, format: .proportional)
-          .map { "\($0.indent(by: 4))\n\n(Expected: −, Received: +)" }
-          ?? """
-          Expected:
-          \(String(describing: expectedAction).indent(by: 2))
+            .map { "\($0.indent(by: 4))\n\n(Expected: −, Received: +)" }
+            ?? """
+            Expected:
+            \(String(describing: expectedAction).indent(by: 2))
 
-          Received:
-          \(String(describing: receivedAction).indent(by: 2))
-          """
+            Received:
+            \(String(describing: receivedAction).indent(by: 2))
+            """
+        }
 
         XCTFail(
           """
@@ -510,6 +572,82 @@
       if "\(self.file)" == "\(file)" {
         self.line = line
       }
+    }
+
+    /// Asserts an action was received from an effect and asserts when state changes.
+    ///
+    /// - Parameters:
+    ///   - expectedAction: An action expected from an effect.
+    ///   - nanoseconds: The amount of time to wait for the expected action.
+    ///   - updateExpectingResult: A closure that asserts state changed by sending the action to the
+    ///     store. The mutable state sent to this closure must be modified to match the state of the
+    ///     store after processing the given action. Do not provide a closure if no change is
+    ///     expected.
+    @MainActor
+    public func receive(
+      _ expectedAction: Action,
+      timeout nanoseconds: UInt64? = nil,
+      _ updateExpectingResult: ((inout LocalState) throws -> Void)? = nil,
+      file: StaticString = #file,
+      line: UInt = #line
+    ) async {
+      let nanoseconds = nanoseconds ?? self.timeout
+
+      guard !self.inFlightEffects.isEmpty
+      else {
+        { self.receive(expectedAction, updateExpectingResult, file: file, line: line) }()
+        return
+      }
+
+      await Task.megaYield()
+      let start = DispatchTime.now().uptimeNanoseconds
+      while !Task.isCancelled {
+        await Task.detached(priority: .low) { await Task.yield() }.value
+
+        guard self.receivedActions.isEmpty
+        else { break }
+
+        guard start.distance(to: DispatchTime.now().uptimeNanoseconds) < nanoseconds
+        else {
+          let suggestion: String
+          if self.inFlightEffects.isEmpty {
+            suggestion = """
+              There are no in-flight effects that could deliver this action. Could the effect you \
+              expected to deliver this action have been cancelled?
+              """
+          } else {
+            let timeoutMessage =
+              nanoseconds != self.timeout
+              ? #"try increasing the duration of this assertion's "timeout""#
+              : #"configure this assertion with an explicit "timeout""#
+            suggestion = """
+              There are effects in-flight. If the effect that delivers this action uses a \
+              scheduler (via "receive(on:)", "delay", "debounce", etc.), make sure that you wait \
+              enough time for the scheduler to perform the effect. If you are using a test \
+              scheduler, advance the scheduler so that the effects may complete, or consider using \
+              an immediate scheduler to immediately perform the effect instead.
+
+              If you are not yet using a scheduler, or can not use a scheduler, \(timeoutMessage).
+              """
+          }
+          XCTFail(
+            """
+            Expected to receive an action, but received none\
+            \(nanoseconds > 0 ? " after \(Double(nanoseconds)/Double(NSEC_PER_SEC)) seconds" : "").
+
+            \(suggestion)
+            """,
+            file: file,
+            line: line
+          )
+          return
+        }
+      }
+
+      guard !Task.isCancelled
+      else { return }
+
+      { self.receive(expectedAction, updateExpectingResult, file: file, line: line) }()
     }
   }
 
@@ -551,6 +689,104 @@
       state toLocalState: @escaping (LocalState) -> S
     ) -> TestStore<State, S, Action, LocalAction, Environment> {
       self.scope(state: toLocalState, action: { $0 })
+    }
+  }
+
+  /// The type returned from ``TestStore/send(_:_:file:line:)`` that represents the lifecycle of the
+  /// effect started from sending an action.
+  ///
+  /// For example you can use this value in tests to cancel the effect started from sending an
+  /// action:
+  ///
+  /// ```swift
+  /// // Simulate the "task" view modifier invoking some async work
+  /// let task = store.send(.task)
+  ///
+  /// // Simulate the view cancelling this work on dismissal
+  /// await task.cancel()
+  /// ```
+  ///
+  /// You can also explicitly wait for an effect to finish:
+  ///
+  /// ```swift
+  /// store.send(.timerToggleButtonTapped)
+  ///
+  /// await mainQueue.advance(by: .seconds(1))
+  /// await store.receive(.timerTick) { $0.elapsed = 1 }
+  ///
+  /// // Wait for cleanup effects to finish before completing the test
+  /// await store.send(.timerToggleButtonTapped).finish()
+  /// ```
+  ///
+  /// See ``TestStore/finish(timeout:file:line:)`` for the ability to await all in-flight effects.
+  ///
+  /// See ``ViewStoreTask`` for the analog provided to ``ViewStore``.
+  public struct TestStoreTask {
+    /// The underlying task.
+    public let rawValue: Task<Void, Never>
+
+    fileprivate let timeout: UInt64
+
+    /// Cancels the underlying task and waits for it to finish.
+    public func cancel() async {
+      self.rawValue.cancel()
+      await self.rawValue.cancellableValue
+    }
+
+    /// Asserts the underlying task finished.
+    ///
+    /// - Parameter nanoseconds: The amount of time to wait before asserting.
+    public func finish(
+      timeout nanoseconds: UInt64? = nil,
+      file: StaticString = #file,
+      line: UInt = #line
+    ) async {
+      let nanoseconds = nanoseconds ?? self.timeout
+      await Task.megaYield()
+      do {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+          group.addTask { await self.rawValue.cancellableValue }
+          group.addTask {
+            try await Task.sleep(nanoseconds: nanoseconds)
+            throw CancellationError()
+          }
+          try await group.next()
+          group.cancelAll()
+        }
+      } catch {
+        let timeoutMessage =
+          nanoseconds != self.timeout
+          ? #"try increasing the duration of this assertion's "timeout""#
+          : #"configure this assertion with an explicit "timeout""#
+        let suggestion = """
+          If this task delivers its action with a scheduler (via "receive(on:)", "delay", \
+          "debounce", etc.), make sure that you wait enough time for the scheduler to perform its \
+          work. If you are using a test scheduler, advance the scheduler so that the effects may \
+          complete, or consider using an immediate scheduler to immediately perform the effect \
+          instead.
+
+          If you are not yet using a scheduler, or can not use a scheduler, \(timeoutMessage).
+          """
+
+        XCTFail(
+          """
+          Expected task to finish, but it is still in-flight\
+          \(nanoseconds > 0 ? " after \(Double(nanoseconds)/Double(NSEC_PER_SEC)) seconds" : "").
+
+          \(suggestion)
+          """,
+          file: file,
+          line: line
+        )
+      }
+    }
+  }
+
+  extension Task where Success == Never, Failure == Never {
+    static func megaYield(count: Int = 3) async {
+      for _ in 1...count {
+        await Task<Void, Never>.detached(priority: .low) { await Task.yield() }.value
+      }
     }
   }
 #endif

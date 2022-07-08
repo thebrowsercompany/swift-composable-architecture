@@ -1,11 +1,11 @@
 import ComposableArchitecture
 import Foundation
+import XCTestDynamicOverlay
 
 #if DEBUG
   extension AudioPlayerClient {
-    static let failing = Self(
-      play: { _ in .failing("AudioPlayerClient.play") },
-      stop: { .failing("AudioPlayerClient.stop") }
+    static let unimplemented = Self(
+      play: XCTUnimplemented("\(Self.self).play")
     )
   }
 #endif

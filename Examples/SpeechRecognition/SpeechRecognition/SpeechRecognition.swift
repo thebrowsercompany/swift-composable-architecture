@@ -19,64 +19,66 @@ struct AppState: Equatable {
 enum AppAction: Equatable {
   case dismissAuthorizationStateAlert
   case recordButtonTapped
-  case speech(Result<SpeechClient.Action, SpeechClient.Error>)
+  case speech(TaskResult<SpeechRecognitionResult>)
   case speechRecognizerAuthorizationStatusResponse(SFSpeechRecognizerAuthorizationStatus)
 }
 
 struct AppEnvironment {
-  var mainQueue: AnySchedulerOf<DispatchQueue>
   var speechClient: SpeechClient
 }
 
 let appReducer = Reducer<AppState, AppAction, AppEnvironment> { state, action, environment in
+  enum CancelId {}
+
   switch action {
   case .dismissAuthorizationStateAlert:
     state.alert = nil
     return .none
 
-  case .speech(.failure(.couldntConfigureAudioSession)),
-    .speech(.failure(.couldntStartAudioEngine)):
-    state.alert = AlertState(title: TextState("Problem with audio device. Please try again."))
-    return .none
-
   case .recordButtonTapped:
     state.isRecording.toggle()
     if state.isRecording {
-      return environment.speechClient.requestAuthorization()
-        .receive(on: environment.mainQueue)
-        .eraseToEffect(AppAction.speechRecognizerAuthorizationStatusResponse)
+      return .task {
+        .speechRecognizerAuthorizationStatusResponse(
+          await environment.speechClient.requestAuthorization()
+        )
+      }
+      .cancellable(id: CancelId.self)
     } else {
-      return environment.speechClient.finishTask()
-        .fireAndForget()
+      return .cancel(id: CancelId.self)
     }
 
-  case let .speech(.success(.availabilityDidChange(isAvailable))):
+  case .speech(.failure(SpeechClient.Failure.couldntConfigureAudioSession)),
+    .speech(.failure(SpeechClient.Failure.couldntStartAudioEngine)):
+    state.alert = AlertState(title: TextState("Problem with audio device. Please try again."))
     return .none
 
-  case let .speech(.success(.taskResult(result))):
-    state.transcribedText = result.bestTranscription.formattedString
-    if result.isFinal {
-      return environment.speechClient.finishTask()
-        .fireAndForget()
-    } else {
-      return .none
-    }
-
-  case let .speech(.failure(error)):
+  case .speech(.failure):
     state.alert = AlertState(
       title: TextState("An error occurred while transcribing. Please try again.")
     )
-    return environment.speechClient.finishTask()
-      .fireAndForget()
+    return .none
+
+  case let .speech(.success(result)):
+    state.transcribedText = result.bestTranscription.formattedString
+    return result.isFinal ? .cancel(id: CancelId.self) : .none
 
   case let .speechRecognizerAuthorizationStatusResponse(status):
     state.isRecording = status == .authorized
     state.speechRecognizerAuthorizationStatus = status
 
     switch status {
-    case .notDetermined:
-      state.alert = AlertState(title: TextState("Try again."))
-      return .none
+    case .authorized:
+      return .run { send in
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = false
+        for try await action in environment.speechClient.recognitionTask(request) {
+          await send(.speech(.success(action)))
+        }
+      } catch: { error, send in
+        await send(.speech(.failure(error)))
+      }
 
     case .denied:
       state.alert = AlertState(
@@ -88,28 +90,17 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment> { state, action, e
       )
       return .none
 
+    case .notDetermined:
+      return .none
+
     case .restricted:
       state.alert = AlertState(title: TextState("Your device does not allow speech recognition."))
       return .none
-
-    case .authorized:
-      let request = SFSpeechAudioBufferRecognitionRequest()
-      request.shouldReportPartialResults = true
-      request.requiresOnDeviceRecognition = false
-      return environment.speechClient.recognitionTask(request)
-        .catchToEffect(AppAction.speech)
 
     @unknown default:
       return .none
     }
   }
-}
-.debug(actionFormat: .labelsOnly)
-
-struct AuthorizationStateAlert: Equatable, Identifiable {
-  var title: String
-
-  var id: String { self.title }
 }
 
 struct SpeechRecognitionView: View {
@@ -158,7 +149,6 @@ struct SpeechRecognitionView_Previews: PreviewProvider {
         initialState: AppState(transcribedText: "Test test 123"),
         reducer: appReducer,
         environment: AppEnvironment(
-          mainQueue: .main,
           speechClient: .live
         )
       )

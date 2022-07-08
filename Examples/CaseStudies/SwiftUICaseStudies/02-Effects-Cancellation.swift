@@ -25,12 +25,11 @@ enum EffectsCancellationAction: Equatable {
   case cancelButtonTapped
   case stepperChanged(Int)
   case triviaButtonTapped
-  case triviaResponse(Result<String, FactClient.Error>)
+  case triviaResponse(TaskResult<String>)
 }
 
 struct EffectsCancellationEnvironment {
   var fact: FactClient
-  var mainQueue: AnySchedulerOf<DispatchQueue>
 }
 
 // MARK: - Business logic
@@ -56,10 +55,10 @@ let effectsCancellationReducer = Reducer<
     state.currentTrivia = nil
     state.isTriviaRequestInFlight = true
 
-    return environment.fact.fetch(state.count)
-      .receive(on: environment.mainQueue)
-      .catchToEffect(EffectsCancellationAction.triviaResponse)
-      .cancellable(id: TriviaRequestId.self)
+    return .task { [count = state.count] in
+      await .triviaResponse(TaskResult { try await environment.fact.fetch(count) })
+    }
+    .cancellable(id: TriviaRequestId.self)
 
   case let .triviaResponse(.success(response)):
     state.isTriviaRequestInFlight = false
@@ -80,15 +79,13 @@ struct EffectsCancellationView: View {
   var body: some View {
     WithViewStore(self.store) { viewStore in
       Form {
-        Section(
-          header: Text(readMe),
-          footer: Button("Number facts provided by numbersapi.com") {
-            UIApplication.shared.open(URL(string: "http://numbersapi.com")!)
-          }
-        ) {
+        Section {
+          AboutView(readMe: readMe)
+        }
+
+        Section {
           Stepper(
-            value: viewStore.binding(
-              get: \.count, send: EffectsCancellationAction.stepperChanged)
+            value: viewStore.binding(get: \.count, send: EffectsCancellationAction.stepperChanged)
           ) {
             Text("\(viewStore.count)")
           }
@@ -98,6 +95,9 @@ struct EffectsCancellationView: View {
               Button("Cancel") { viewStore.send(.cancelButtonTapped) }
               Spacer()
               ProgressView()
+                // NB: There seems to be a bug in SwiftUI where the progress view does not show
+                // a second time unless it is given a new identity.
+                .id(UUID())
             }
           } else {
             Button("Number fact") { viewStore.send(.triviaButtonTapped) }
@@ -108,7 +108,16 @@ struct EffectsCancellationView: View {
             Text($0).padding(.vertical, 8)
           }
         }
+
+        Section {
+          Button("Number facts provided by numbersapi.com") {
+            UIApplication.shared.open(URL(string: "http://numbersapi.com")!)
+          }
+          .foregroundColor(.gray)
+          .frame(maxWidth: .infinity)
+        }
       }
+      .buttonStyle(.borderless)
     }
     .navigationBarTitle("Effect cancellation")
   }
@@ -124,8 +133,7 @@ struct EffectsCancellation_Previews: PreviewProvider {
           initialState: EffectsCancellationState(),
           reducer: effectsCancellationReducer,
           environment: EffectsCancellationEnvironment(
-            fact: .live,
-            mainQueue: .main
+            fact: .live
           )
         )
       )

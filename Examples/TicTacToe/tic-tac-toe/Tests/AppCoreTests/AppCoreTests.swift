@@ -6,18 +6,18 @@ import NewGameCore
 import TwoFactorCore
 import XCTest
 
+@MainActor
 class AppCoreTests: XCTestCase {
-  func testIntegration() {
-    var authenticationClient = AuthenticationClient.failing
+  func testIntegration() async {
+    var authenticationClient = AuthenticationClient.unimplemented
     authenticationClient.login = { _ in
-      Effect(value: AuthenticationResponse(token: "deadbeef", twoFactorRequired: false))
+      AuthenticationResponse(token: "deadbeef", twoFactorRequired: false)
     }
     let store = TestStore(
       initialState: AppState(),
       reducer: appReducer,
       environment: AppEnvironment(
-        authenticationClient: authenticationClient,
-        mainQueue: .immediate
+        authenticationClient: authenticationClient
       )
     )
 
@@ -37,7 +37,7 @@ class AppCoreTests: XCTestCase {
         $0.isLoginRequestInFlight = true
       }
     }
-    store.receive(
+    await store.receive(
       .login(
         .loginResponse(
           .success(AuthenticationResponse(token: "deadbeef", twoFactorRequired: false))
@@ -56,20 +56,19 @@ class AppCoreTests: XCTestCase {
     }
   }
 
-  func testIntegration_TwoFactor() {
-    var authenticationClient = AuthenticationClient.failing
+  func testIntegration_TwoFactor() async {
+    var authenticationClient = AuthenticationClient.unimplemented
     authenticationClient.login = { _ in
-      Effect(value: AuthenticationResponse(token: "deadbeef", twoFactorRequired: true))
+      AuthenticationResponse(token: "deadbeef", twoFactorRequired: true)
     }
     authenticationClient.twoFactor = { _ in
-      Effect(value: AuthenticationResponse(token: "deadbeef", twoFactorRequired: false))
+      AuthenticationResponse(token: "deadbeef", twoFactorRequired: false)
     }
     let store = TestStore(
       initialState: AppState(),
       reducer: appReducer,
       environment: AppEnvironment(
-        authenticationClient: authenticationClient,
-        mainQueue: .immediate
+        authenticationClient: authenticationClient
       )
     )
 
@@ -91,7 +90,7 @@ class AppCoreTests: XCTestCase {
         $0.isLoginRequestInFlight = true
       }
     }
-    store.receive(
+    await store.receive(
       .login(
         .loginResponse(.success(AuthenticationResponse(token: "deadbeef", twoFactorRequired: true)))
       )
@@ -114,7 +113,7 @@ class AppCoreTests: XCTestCase {
         $0.twoFactor?.isTwoFactorRequestInFlight = true
       }
     }
-    store.receive(
+    await store.receive(
       .login(
         .twoFactor(
           .twoFactorResponse(

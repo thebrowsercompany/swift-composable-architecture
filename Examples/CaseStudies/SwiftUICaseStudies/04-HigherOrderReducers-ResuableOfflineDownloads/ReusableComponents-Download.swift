@@ -72,12 +72,7 @@ let cityMapReducer = Reducer<CityMapState, CityMapAction, CityMapEnvironment> {
 .downloadable(
   state: \.downloadComponent,
   action: /CityMapAction.downloadComponent,
-  environment: {
-    DownloadComponentEnvironment(
-      downloadClient: $0.downloadClient,
-      mainQueue: $0.mainQueue
-    )
-  }
+  environment: { DownloadComponentEnvironment(downloadClient: $0.downloadClient) }
 )
 
 struct CityMapRowView: View {
@@ -174,15 +169,14 @@ struct CitiesView: View {
 
   var body: some View {
     Form {
-      Section(
-        header: Text(readMe)
-      ) {
-        ForEachStore(
-          self.store.scope(state: \.cityMaps, action: MapAppAction.cityMaps(id:action:))
-        ) { cityMapStore in
-          CityMapRowView(store: cityMapStore)
-            .buttonStyle(.borderless)
-        }
+      Section {
+        AboutView(readMe: readMe)
+      }
+      ForEachStore(
+        self.store.scope(state: \.cityMaps, action: MapAppAction.cityMaps(id:action:))
+      ) { cityMapStore in
+        CityMapRowView(store: cityMapStore)
+          .buttonStyle(.borderless)
       }
     }
     .navigationBarTitle("Offline Downloads")

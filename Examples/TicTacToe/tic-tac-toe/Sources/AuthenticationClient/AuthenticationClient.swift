@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import Foundation
+import XCTestDynamicOverlay
 
 public struct LoginRequest {
   public var email: String
@@ -57,13 +58,13 @@ public enum AuthenticationError: Equatable, LocalizedError {
   }
 }
 
-public struct AuthenticationClient {
-  public var login: (LoginRequest) -> Effect<AuthenticationResponse, AuthenticationError>
-  public var twoFactor: (TwoFactorRequest) -> Effect<AuthenticationResponse, AuthenticationError>
+public struct AuthenticationClient: Sendable {
+  public var login: @Sendable (LoginRequest) async throws -> AuthenticationResponse
+  public var twoFactor: @Sendable (TwoFactorRequest) async throws -> AuthenticationResponse
 
   public init(
-    login: @escaping (LoginRequest) -> Effect<AuthenticationResponse, AuthenticationError>,
-    twoFactor: @escaping (TwoFactorRequest) -> Effect<AuthenticationResponse, AuthenticationError>
+    login: @escaping @Sendable (LoginRequest) async throws -> AuthenticationResponse,
+    twoFactor: @escaping @Sendable (TwoFactorRequest) async throws -> AuthenticationResponse
   ) {
     self.login = login
     self.twoFactor = twoFactor
@@ -72,9 +73,9 @@ public struct AuthenticationClient {
 
 #if DEBUG
   extension AuthenticationClient {
-    public static let failing = Self(
-      login: { _ in .failing("AuthenticationClient.login") },
-      twoFactor: { _ in .failing("AuthenticationClient.twoFactor") }
+    public static let unimplemented = Self(
+      login: XCTUnimplemented("\(Self.self).login"),
+      twoFactor: XCTUnimplemented("\(Self.self).twoFactor")
     )
   }
 #endif

@@ -3,6 +3,7 @@ import XCTest
 
 @testable import ComposableArchitecture
 
+@MainActor
 final class StoreTests: XCTestCase {
   var cancellables: Set<AnyCancellable> = []
 
@@ -12,15 +13,15 @@ final class StoreTests: XCTestCase {
 
     XCTAssertNoDifference(store.effectCancellables.count, 0)
 
-    store.send(())
+    _ = store.send(())
 
     XCTAssertNoDifference(store.effectCancellables.count, 0)
   }
 
   func testCancellableIsRemovedWhenEffectCompletes() {
-    let scheduler = DispatchQueue.test
+    let mainQueue = DispatchQueue.test
     let effect = Effect<Void, Never>(value: ())
-      .delay(for: 1, scheduler: scheduler)
+      .delay(for: 1, scheduler: mainQueue)
       .eraseToEffect()
 
     enum Action { case start, end }
@@ -37,11 +38,11 @@ final class StoreTests: XCTestCase {
 
     XCTAssertNoDifference(store.effectCancellables.count, 0)
 
-    store.send(.start)
+    _ = store.send(.start)
 
     XCTAssertNoDifference(store.effectCancellables.count, 1)
 
-    scheduler.advance(by: 2)
+    mainQueue.advance(by: 2)
 
     XCTAssertNoDifference(store.effectCancellables.count, 0)
   }
@@ -199,7 +200,7 @@ final class StoreTests: XCTestCase {
 
     let store = Store(initialState: (), reducer: counterReducer, environment: ())
 
-    store.send(.tap)
+    _ = store.send(.tap)
 
     XCTAssertNoDifference(values, [1, 2, 3, 4])
   }
@@ -217,7 +218,7 @@ final class StoreTests: XCTestCase {
     }
 
     let store = Store(initialState: 0, reducer: reducer, environment: ())
-    store.send(.incr)
+    _ = store.send(.incr)
     XCTAssertNoDifference(ViewStore(store).state, 100_000)
   }
 
@@ -252,22 +253,22 @@ final class StoreTests: XCTestCase {
 
     XCTAssertNoDifference(outputs, [nil])
 
-    parentStore.send(1)
+    _ = parentStore.send(1)
     XCTAssertNoDifference(outputs, [nil, 1])
 
-    parentStore.send(nil)
+    _ = parentStore.send(nil)
     XCTAssertNoDifference(outputs, [nil, 1, nil])
 
-    parentStore.send(1)
+    _ = parentStore.send(1)
     XCTAssertNoDifference(outputs, [nil, 1, nil, 1])
 
-    parentStore.send(nil)
+    _ = parentStore.send(nil)
     XCTAssertNoDifference(outputs, [nil, 1, nil, 1, nil])
 
-    parentStore.send(1)
+    _ = parentStore.send(1)
     XCTAssertNoDifference(outputs, [nil, 1, nil, 1, nil, 1])
 
-    parentStore.send(nil)
+    _ = parentStore.send(nil)
     XCTAssertNoDifference(outputs, [nil, 1, nil, 1, nil, 1, nil])
   }
 
@@ -439,7 +440,7 @@ final class StoreTests: XCTestCase {
 
     XCTAssertNoDifference(handledActions, [])
 
-    parentStore.send(.button)
+    _ = parentStore.send(.button)
     XCTAssertNoDifference(
       handledActions,
       [
@@ -572,5 +573,80 @@ final class StoreTests: XCTestCase {
     // Sometimes, we get a third update with "USA" again...
     
     XCTAssertEqual(seenCountries, ["USA", "UK"])
+  }
+  
+  func testCascadingTaskCancellation() async {
+    enum Action { case task, response, response1, response2 }
+    let reducer = Reducer<Int, Action, Void> { state, action, _ in
+      switch action {
+      case .task:
+        return .task { .response }
+      case .response:
+        return .merge(
+          Empty(completeImmediately: false).eraseToEffect(),
+          .task { .response1 }
+        )
+      case .response1:
+        return .merge(
+          Empty(completeImmediately: false).eraseToEffect(),
+          .task { .response2 }
+        )
+      case .response2:
+        return Empty(completeImmediately: false).eraseToEffect()
+      }
+    }
+
+    let store = TestStore(
+      initialState: 0,
+      reducer: reducer,
+      environment: ()
+    )
+
+    let task = store.send(.task)
+    await store.receive(.response)
+    await store.receive(.response1)
+    await store.receive(.response2)
+    await task.cancel()
+  }
+
+  func testTaskCancellationEmpty() async {
+    enum Action { case task }
+    let reducer = Reducer<Int, Action, Void> { state, action, _ in
+      switch action {
+      case .task:
+        return .fireAndForget { try await Task.never() }
+      }
+    }
+
+    let store = TestStore(
+      initialState: 0,
+      reducer: reducer,
+      environment: ()
+    )
+
+    let task = store.send(.task)
+    await task.cancel()
+  }
+  
+  func testScopeCancellation() async throws {
+    let neverEndingTask = Task<Void, Error> { try await Task.never() }
+
+    let store = Store(
+      initialState: (),
+      reducer: Reducer<Void, Void, Void> { _, _, _ in
+        .fireAndForget {
+          try await neverEndingTask.value
+        }
+      },
+      environment: ()
+    )
+    let scopedStore = store.scope(state: { $0 })
+
+    let sendTask = scopedStore.send(())
+    await Task.yield()
+    neverEndingTask.cancel()
+    await sendTask.value
+    XCTAssertEqual(store.effectCancellables.count, 0)
+    XCTAssertEqual(scopedStore.effectCancellables.count, 0)
   }
 }

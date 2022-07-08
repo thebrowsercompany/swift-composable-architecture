@@ -48,10 +48,11 @@ let loadThenPresentReducer =
 
       case .setSheet(isPresented: true):
         state.isActivityIndicatorVisible = true
-        return Effect(value: .setSheetIsPresentedDelayCompleted)
-          .delay(for: 1, scheduler: environment.mainQueue)
-          .eraseToEffect()
-          .cancellable(id: CancelId.self)
+        return .task {
+          try? await environment.mainQueue.sleep(for: 1)
+          return .setSheetIsPresentedDelayCompleted
+        }
+        .cancellable(id: CancelId.self)
 
       case .setSheet(isPresented: false):
         state.optionalCounter = nil
@@ -74,14 +75,15 @@ struct LoadThenPresentView: View {
   var body: some View {
     WithViewStore(self.store) { viewStore in
       Form {
-        Section(header: Text(readMe)) {
-          Button(action: { viewStore.send(.setSheet(isPresented: true)) }) {
-            HStack {
-              Text("Load optional counter")
-              if viewStore.isActivityIndicatorVisible {
-                Spacer()
-                ProgressView()
-              }
+        Section {
+          AboutView(readMe: readMe)
+        }
+        Button(action: { viewStore.send(.setSheet(isPresented: true)) }) {
+          HStack {
+            Text("Load optional counter")
+            if viewStore.isActivityIndicatorVisible {
+              Spacer()
+              ProgressView()
             }
           }
         }

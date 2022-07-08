@@ -3,16 +3,17 @@ import XCTest
 
 @testable import Todos
 
+@MainActor
 class TodosTests: XCTestCase {
-  let scheduler = DispatchQueue.test
+  let mainQueue = DispatchQueue.test
 
   func testAddTodo() {
     let store = TestStore(
       initialState: AppState(),
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 
@@ -42,8 +43,8 @@ class TodosTests: XCTestCase {
       initialState: state,
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 
@@ -54,7 +55,7 @@ class TodosTests: XCTestCase {
     }
   }
 
-  func testCompleteTodo() {
+  func testCompleteTodo() async {
     let state = AppState(
       todos: [
         Todo(
@@ -73,16 +74,16 @@ class TodosTests: XCTestCase {
       initialState: state,
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 
     store.send(.todo(id: state.todos[0].id, action: .checkBoxToggled)) {
       $0.todos[id: state.todos[0].id]?.isComplete = true
     }
-    self.scheduler.advance(by: 1)
-    store.receive(.sortCompletedTodos) {
+    await self.mainQueue.advance(by: 1)
+    await store.receive(.sortCompletedTodos) {
       $0.todos = [
         $0.todos[1],
         $0.todos[0],
@@ -90,7 +91,7 @@ class TodosTests: XCTestCase {
     }
   }
 
-  func testCompleteTodoDebounces() {
+  func testCompleteTodoDebounces() async {
     let state = AppState(
       todos: [
         Todo(
@@ -109,20 +110,20 @@ class TodosTests: XCTestCase {
       initialState: state,
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 
     store.send(.todo(id: state.todos[0].id, action: .checkBoxToggled)) {
       $0.todos[id: state.todos[0].id]?.isComplete = true
     }
-    self.scheduler.advance(by: 0.5)
+    await self.mainQueue.advance(by: 0.5)
     store.send(.todo(id: state.todos[0].id, action: .checkBoxToggled)) {
       $0.todos[id: state.todos[0].id]?.isComplete = false
     }
-    self.scheduler.advance(by: 1)
-    store.receive(.sortCompletedTodos)
+    await self.mainQueue.advance(by: 1)
+    await store.receive(.sortCompletedTodos)
   }
 
   func testClearCompleted() {
@@ -144,8 +145,8 @@ class TodosTests: XCTestCase {
       initialState: state,
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 
@@ -180,8 +181,8 @@ class TodosTests: XCTestCase {
       initialState: state,
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 
@@ -193,7 +194,7 @@ class TodosTests: XCTestCase {
     }
   }
 
-  func testEditModeMoving() {
+  func testEditModeMoving() async {
     let state = AppState(
       todos: [
         Todo(
@@ -217,8 +218,8 @@ class TodosTests: XCTestCase {
       initialState: state,
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 
@@ -232,11 +233,11 @@ class TodosTests: XCTestCase {
         $0.todos[2],
       ]
     }
-    self.scheduler.advance(by: .milliseconds(100))
-    store.receive(.sortCompletedTodos)
+    await self.mainQueue.advance(by: .milliseconds(100))
+    await store.receive(.sortCompletedTodos)
   }
 
-  func testEditModeMovingWithFilter() {
+  func testEditModeMovingWithFilter() async {
     let state = AppState(
       todos: [
         Todo(
@@ -265,8 +266,8 @@ class TodosTests: XCTestCase {
       initialState: state,
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 
@@ -284,8 +285,8 @@ class TodosTests: XCTestCase {
         $0.todos[3],
       ]
     }
-    self.scheduler.advance(by: .milliseconds(100))
-    store.receive(.sortCompletedTodos)
+    await self.mainQueue.advance(by: .milliseconds(100))
+    await store.receive(.sortCompletedTodos)
   }
 
   func testFilteredEdit() {
@@ -307,8 +308,8 @@ class TodosTests: XCTestCase {
       initialState: state,
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: self.scheduler.eraseToAnyScheduler(),
-        uuid: UUID.incrementing
+        mainQueue: self.mainQueue.eraseToAnyScheduler(),
+        uuid: { UUID.incrementing() }
       )
     )
 

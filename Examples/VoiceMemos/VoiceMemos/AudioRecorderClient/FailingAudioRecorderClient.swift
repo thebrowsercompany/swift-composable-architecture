@@ -1,13 +1,16 @@
 import ComposableArchitecture
 import Foundation
+import XCTestDynamicOverlay
 
 #if DEBUG
   extension AudioRecorderClient {
-    static let failing = Self(
-      currentTime: { .failing("AudioRecorderClient.currentTime") },
-      requestRecordPermission: { .failing("AudioRecorderClient.requestRecordPermission") },
-      startRecording: { _ in .failing("AudioRecorderClient.startRecording") },
-      stopRecording: { .failing("AudioRecorderClient.stopRecording") }
+    static let unimplemented = Self(
+      currentTime: XCTUnimplemented("\(Self.self).currentTime", placeholder: nil),
+      requestRecordPermission: XCTUnimplemented(
+        "\(Self.self).requestRecordPermission", placeholder: false
+      ),
+      startRecording: XCTUnimplemented("\(Self.self).startRecording", placeholder: false),
+      stopRecording: XCTUnimplemented("\(Self.self).stopRecording")
     )
   }
 #endif

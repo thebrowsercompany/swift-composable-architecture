@@ -4,18 +4,16 @@ import XCTest
 
 @testable import SpeechRecognition
 
+@MainActor
 class SpeechRecognitionTests: XCTestCase {
-  let recognitionTaskSubject = PassthroughSubject<SpeechClient.Action, SpeechClient.Error>()
-
-  func testDenyAuthorization() {
-    var speechClient = SpeechClient.failing
-    speechClient.requestAuthorization = { Effect(value: .denied) }
+  func testDenyAuthorization() async {
+    var speechClient = SpeechClient.unimplemented
+    speechClient.requestAuthorization = { .denied }
 
     let store = TestStore(
       initialState: AppState(),
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: .immediate,
         speechClient: speechClient
       )
     )
@@ -23,7 +21,7 @@ class SpeechRecognitionTests: XCTestCase {
     store.send(.recordButtonTapped) {
       $0.isRecording = true
     }
-    store.receive(.speechRecognizerAuthorizationStatusResponse(.denied)) {
+    await store.receive(.speechRecognizerAuthorizationStatusResponse(.denied)) {
       $0.alert = AlertState(
         title: TextState(
           """
@@ -36,15 +34,14 @@ class SpeechRecognitionTests: XCTestCase {
     }
   }
 
-  func testRestrictedAuthorization() {
-    var speechClient = SpeechClient.failing
-    speechClient.requestAuthorization = { Effect(value: .restricted) }
+  func testRestrictedAuthorization() async {
+    var speechClient = SpeechClient.unimplemented
+    speechClient.requestAuthorization = { .restricted }
 
     let store = TestStore(
       initialState: AppState(),
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: .immediate,
         speechClient: speechClient
       )
     )
@@ -52,26 +49,24 @@ class SpeechRecognitionTests: XCTestCase {
     store.send(.recordButtonTapped) {
       $0.isRecording = true
     }
-    store.receive(.speechRecognizerAuthorizationStatusResponse(.restricted)) {
+    await store.receive(.speechRecognizerAuthorizationStatusResponse(.restricted)) {
       $0.alert = AlertState(title: TextState("Your device does not allow speech recognition."))
       $0.isRecording = false
       $0.speechRecognizerAuthorizationStatus = .restricted
     }
   }
 
-  func testAllowAndRecord() {
-    var speechClient = SpeechClient.failing
-    speechClient.finishTask = {
-      .fireAndForget { self.recognitionTaskSubject.send(completion: .finished) }
-    }
-    speechClient.recognitionTask = { _ in self.recognitionTaskSubject.eraseToEffect() }
-    speechClient.requestAuthorization = { Effect(value: .authorized) }
+  func testAllowAndRecord() async {
+    let recognitionTask = AsyncThrowingStream<SpeechRecognitionResult, Error>.streamWithContinuation()
+
+    var speechClient = SpeechClient.unimplemented
+    speechClient.recognitionTask = { _ in recognitionTask.stream }
+    speechClient.requestAuthorization = { .authorized }
 
     let store = TestStore(
       initialState: AppState(),
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: .immediate,
         speechClient: speechClient
       )
     )
@@ -88,35 +83,37 @@ class SpeechRecognitionTests: XCTestCase {
     finalResult.bestTranscription.formattedString = "Hello world"
     finalResult.isFinal = true
 
-    store.send(.recordButtonTapped) {
+    let task = store.send(.recordButtonTapped) {
       $0.isRecording = true
     }
 
-    store.receive(.speechRecognizerAuthorizationStatusResponse(.authorized)) {
+    await store.receive(.speechRecognizerAuthorizationStatusResponse(.authorized)) {
       $0.speechRecognizerAuthorizationStatus = .authorized
     }
 
-    self.recognitionTaskSubject.send(.taskResult(result))
-    store.receive(.speech(.success(.taskResult(result)))) {
+    recognitionTask.continuation.yield(result)
+    await store.receive(.speech(.success(result))) {
       $0.transcribedText = "Hello"
     }
 
-    self.recognitionTaskSubject.send(.taskResult(finalResult))
-    store.receive(.speech(.success(.taskResult(finalResult)))) {
+    recognitionTask.continuation.yield(finalResult)
+    await store.receive(.speech(.success(finalResult))) {
       $0.transcribedText = "Hello world"
     }
+    await task.cancel()
   }
 
-  func testAudioSessionFailure() {
-    var speechClient = SpeechClient.failing
-    speechClient.recognitionTask = { _ in self.recognitionTaskSubject.eraseToEffect() }
-    speechClient.requestAuthorization = { Effect(value: .authorized) }
+  func testAudioSessionFailure() async {
+    let recognitionTask = AsyncThrowingStream<SpeechRecognitionResult, Error>.streamWithContinuation()
+
+    var speechClient = SpeechClient.unimplemented
+    speechClient.recognitionTask = { _ in recognitionTask.stream }
+    speechClient.requestAuthorization = { .authorized }
 
     let store = TestStore(
       initialState: AppState(),
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: .immediate,
         speechClient: speechClient
       )
     )
@@ -125,28 +122,27 @@ class SpeechRecognitionTests: XCTestCase {
       $0.isRecording = true
     }
 
-    store.receive(.speechRecognizerAuthorizationStatusResponse(.authorized)) {
+    await store.receive(.speechRecognizerAuthorizationStatusResponse(.authorized)) {
       $0.speechRecognizerAuthorizationStatus = .authorized
     }
 
-    self.recognitionTaskSubject.send(completion: .failure(.couldntConfigureAudioSession))
-    store.receive(.speech(.failure(.couldntConfigureAudioSession))) {
+    recognitionTask.continuation.finish(throwing: SpeechClient.Failure.couldntConfigureAudioSession)
+    await store.receive(.speech(.failure(SpeechClient.Failure.couldntConfigureAudioSession))) {
       $0.alert = AlertState(title: TextState("Problem with audio device. Please try again."))
     }
-
-    self.recognitionTaskSubject.send(completion: .finished)
   }
 
-  func testAudioEngineFailure() {
-    var speechClient = SpeechClient.failing
-    speechClient.recognitionTask = { _ in self.recognitionTaskSubject.eraseToEffect() }
-    speechClient.requestAuthorization = { Effect(value: .authorized) }
+  func testAudioEngineFailure() async {
+    let recognitionTask = AsyncThrowingStream<SpeechRecognitionResult, Error>.streamWithContinuation()
+
+    var speechClient = SpeechClient.unimplemented
+    speechClient.recognitionTask = { _ in recognitionTask.stream }
+    speechClient.requestAuthorization = { .authorized }
 
     let store = TestStore(
       initialState: AppState(),
       reducer: appReducer,
       environment: AppEnvironment(
-        mainQueue: .immediate,
         speechClient: speechClient
       )
     )
@@ -155,15 +151,13 @@ class SpeechRecognitionTests: XCTestCase {
       $0.isRecording = true
     }
 
-    store.receive(.speechRecognizerAuthorizationStatusResponse(.authorized)) {
+    await store.receive(.speechRecognizerAuthorizationStatusResponse(.authorized)) {
       $0.speechRecognizerAuthorizationStatus = .authorized
     }
 
-    self.recognitionTaskSubject.send(completion: .failure(.couldntStartAudioEngine))
-    store.receive(.speech(.failure(.couldntStartAudioEngine))) {
+    recognitionTask.continuation.finish(throwing: SpeechClient.Failure.couldntStartAudioEngine)
+    await store.receive(.speech(.failure(SpeechClient.Failure.couldntStartAudioEngine))) {
       $0.alert = AlertState(title: TextState("Problem with audio device. Please try again."))
     }
-
-    self.recognitionTaskSubject.send(completion: .finished)
   }
 }

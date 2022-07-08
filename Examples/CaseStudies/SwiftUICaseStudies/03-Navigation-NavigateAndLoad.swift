@@ -43,10 +43,11 @@ let navigateAndLoadReducer =
       switch action {
       case .setNavigation(isActive: true):
         state.isNavigationActive = true
-        return Effect(value: .setNavigationIsActiveDelayCompleted)
-          .delay(for: 1, scheduler: environment.mainQueue)
-          .eraseToEffect()
-          .cancellable(id: CancelId.self)
+        return .task {
+          try? await environment.mainQueue.sleep(for: 1)
+          return .setNavigationIsActiveDelayCompleted
+        }
+        .cancellable(id: CancelId.self)
 
       case .setNavigation(isActive: false):
         state.isNavigationActive = false
@@ -69,26 +70,27 @@ struct NavigateAndLoadView: View {
   var body: some View {
     WithViewStore(self.store) { viewStore in
       Form {
-        Section(header: Text(readMe)) {
-          NavigationLink(
-            destination: IfLetStore(
-              self.store.scope(
-                state: \.optionalCounter,
-                action: NavigateAndLoadAction.optionalCounter
-              )
-            ) {
-              CounterView(store: $0)
-            } else: {
-              ProgressView()
-            },
-            isActive: viewStore.binding(
-              get: \.isNavigationActive,
-              send: NavigateAndLoadAction.setNavigation(isActive:)
+        Section {
+          AboutView(readMe: readMe)
+        }
+        NavigationLink(
+          destination: IfLetStore(
+            self.store.scope(
+              state: \.optionalCounter,
+              action: NavigateAndLoadAction.optionalCounter
             )
           ) {
-            HStack {
-              Text("Load optional counter")
-            }
+            CounterView(store: $0)
+          } else: {
+            ProgressView()
+          },
+          isActive: viewStore.binding(
+            get: \.isNavigationActive,
+            send: NavigateAndLoadAction.setNavigation(isActive:)
+          )
+        ) {
+          HStack {
+            Text("Load optional counter")
           }
         }
       }

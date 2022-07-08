@@ -1,4 +1,5 @@
 import ComposableArchitecture
+@preconcurrency import Foundation  // NB: UUID is not Sendable
 import SwiftUI
 
 private let readMe = """
@@ -66,11 +67,11 @@ let loadThenNavigateListReducer =
         for row in state.rows {
           state.rows[id: row.id]?.isActivityIndicatorVisible = row.id == navigatedId
         }
-
-        return Effect(value: .setNavigationSelectionDelayCompleted(navigatedId))
-          .delay(for: 1, scheduler: environment.mainQueue)
-          .eraseToEffect()
-          .cancellable(id: CancelId.self, cancelInFlight: true)
+        return .task {
+          try? await environment.mainQueue.sleep(for: 1)
+          return .setNavigationSelectionDelayCompleted(navigatedId)
+        }
+        .cancellable(id: CancelId.self, cancelInFlight: true)
 
       case .setNavigation(selection: .none):
         if let selection = state.selection {
@@ -96,29 +97,30 @@ struct LoadThenNavigateListView: View {
   var body: some View {
     WithViewStore(self.store) { viewStore in
       Form {
-        Section(header: Text(readMe)) {
-          ForEach(viewStore.rows) { row in
-            NavigationLink(
-              destination: IfLetStore(
-                self.store.scope(
-                  state: \.selection?.value,
-                  action: LoadThenNavigateListAction.counter
-                )
-              ) {
-                CounterView(store: $0)
-              },
-              tag: row.id,
-              selection: viewStore.binding(
-                get: \.selection?.id,
-                send: LoadThenNavigateListAction.setNavigation(selection:)
+        Section {
+          AboutView(readMe: readMe)
+        }
+        ForEach(viewStore.rows) { row in
+          NavigationLink(
+            destination: IfLetStore(
+              self.store.scope(
+                state: \.selection?.value,
+                action: LoadThenNavigateListAction.counter
               )
             ) {
-              HStack {
-                Text("Load optional counter that starts from \(row.count)")
-                if row.isActivityIndicatorVisible {
-                  Spacer()
-                  ProgressView()
-                }
+              CounterView(store: $0)
+            },
+            tag: row.id,
+            selection: viewStore.binding(
+              get: \.selection?.id,
+              send: LoadThenNavigateListAction.setNavigation(selection:)
+            )
+          ) {
+            HStack {
+              Text("Load optional counter that starts from \(row.count)")
+              if row.isActivityIndicatorVisible {
+                Spacer()
+                ProgressView()
               }
             }
           }

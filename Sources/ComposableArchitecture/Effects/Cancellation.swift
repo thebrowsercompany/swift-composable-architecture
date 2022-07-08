@@ -1,5 +1,4 @@
 import Combine
-import Foundation
 
 extension Effect {
   /// Turns an effect into one that is capable of being canceled.
@@ -134,6 +133,99 @@ extension Effect {
   }
 }
 
+/// Execute an operation with a cancellation identifier.
+///
+/// If the operation is in-flight when `Task.cancel(id:)` is called with the same identifier, the
+/// operation will be cancelled.
+///
+/// - Parameters:
+///   - id: A unique identifier for the operation.
+///   - cancelInFlight: Determines if any in-flight operation with the same identifier should be
+///     canceled before starting this new one.
+///   - resultType: The type of value produced by the operation.
+///   - operation: An async operation.
+/// - Throws: An error thrown by the operation.
+/// - Returns: A value produced by operation.
+public func withTaskCancellation<T: Sendable>(
+  id: AnyHashable,
+  cancelInFlight: Bool = false,
+  resultType: T.Type = T.self,
+  operation: @Sendable @escaping () async throws -> T
+) async rethrows -> T {
+  cancellablesLock.lock()
+  let id = CancelToken(id: id)
+  if cancelInFlight {
+    cancellationCancellables[id]?.forEach { $0.cancel() }
+  }
+  let task = Task { try await operation() }
+  var cancellable: AnyCancellable!
+  cancellable = AnyCancellable {
+    task.cancel()
+    cancellablesLock.sync {
+      cancellationCancellables[id]?.remove(cancellable)
+      if cancellationCancellables[id]?.isEmpty == .some(true) {
+        cancellationCancellables[id] = nil
+      }
+    }
+  }
+  cancellationCancellables[id, default: []].insert(cancellable)
+  cancellablesLock.unlock()
+  do {
+    return try await task.cancellableValue
+  } catch {
+    return try Result<T, Error>.failure(error)._rethrowGet()
+  }
+}
+
+/// Execute an operation with a cancellation identifier.
+///
+/// A convenience for calling
+/// ``withTaskCancellation(id:cancelInFlight:resultType:operation:)-1m27c`` with a static type as
+/// the operation's unique identifier.
+///
+/// - Parameters:
+///   - id: A unique type identifying the operation.
+///   - cancelInFlight: Determines if any in-flight operation with the same identifier should be
+///     canceled before starting this new one.
+///   - resultType: The type of value produced by the operation.
+///   - operation: An async operation.
+/// - Throws: An error thrown by the operation.
+/// - Returns: A value produced by operation.
+public func withTaskCancellation<T: Sendable>(
+  id: Any.Type,
+  cancelInFlight: Bool = false,
+  resultType: T.Type = T.self,
+  operation: @Sendable @escaping () async throws -> T
+) async rethrows -> T {
+  try await withTaskCancellation(
+    id: ObjectIdentifier(id),
+    cancelInFlight: cancelInFlight,
+    resultType: resultType,
+    operation: operation
+  )
+}
+
+extension Task where Success == Never, Failure == Never {
+  /// Cancel any currently in-flight operation with the given identifier.
+  ///
+  /// - Parameter id: An identifier.
+  public static func cancel(id: AnyHashable) async {
+    await MainActor.run {
+      cancellablesLock.sync { cancellationCancellables[.init(id: id)]?.forEach { $0.cancel() } }
+    }
+  }
+
+  /// Cancel any currently in-flight operation with the given identifier.
+  ///
+  /// A convenience for calling `Task.cancel(id:)` with a static type as the operation's unique
+  /// identifier.
+  ///
+  /// - Parameter id: A unique type identifying the operation.
+  public static func cancel(id: Any.Type) async {
+    await self.cancel(id: ObjectIdentifier(id))
+  }
+}
+
 struct CancelToken: Hashable {
   let id: AnyHashable
   let discriminator: ObjectIdentifier
@@ -146,3 +238,22 @@ struct CancelToken: Hashable {
 
 var cancellationCancellables: [CancelToken: Set<AnyCancellable>] = [:]
 let cancellablesLock = NSRecursiveLock()
+
+@rethrows
+private protocol _ErrorMechanism {
+  associatedtype Output
+  func get() throws -> Output
+}
+
+extension _ErrorMechanism {
+  internal func _rethrowError() rethrows -> Never {
+    _ = try _rethrowGet()
+    fatalError()
+  }
+
+  internal func _rethrowGet() rethrows -> Output {
+    return try get()
+  }
+}
+
+extension Result: _ErrorMechanism {}

@@ -1,4 +1,5 @@
 import Combine
+import Dependencies
 import Foundation
 
 /// A store represents the runtime that powers the application. It is the object that you will pass
@@ -336,9 +337,9 @@ public final class Store<State, Action> {
       reducer: .init { localState, localAction, _ in
         isSending = true
         defer { isSending = false }
-        self.send(fromLocalAction(localAction))
+        let task = self.send(fromLocalAction(localAction))
         localState = toLocalState(self.state.value)
-        return .none
+        return .fireAndForget { await task.cancellableValue }
       },
       environment: ()
     )
@@ -381,11 +382,15 @@ public final class Store<State, Action> {
     self.scope(state: toLocalState, action: { $0 }, instrumentation: instrumentation)
   }
 
-  func send(_ action: Action, originatingFrom originatingAction: Action? = nil, instrumentation: Instrumentation = .shared) {
+  func send(
+    _ action: Action,
+    originatingFrom originatingAction: Action? = nil,
+    instrumentation: Instrumentation = .shared
+  ) -> Task<Void, Never> {
     self.threadCheck(status: .send(action, originatingAction: originatingAction))
 
     self.bufferedActions.append(action)
-    guard !self.isSending else { return }
+    guard !self.isSending else { return Task {} }
 
     self.isSending = true
     var currentState = self.state.value
@@ -393,6 +398,8 @@ public final class Store<State, Action> {
     let callbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: action, originatingAction: originatingAction).eraseToAny()
     instrumentation.callback?(callbackInfo, .pre, .storeSend)
     defer { instrumentation.callback?(callbackInfo, .post, .storeSend) }
+
+    let tasks = Box<[Task<Void, Never>]>(wrappedValue: [])
 
     defer {
       instrumentation.callback?(callbackInfo, .pre, .storeChangeState)
@@ -404,9 +411,11 @@ public final class Store<State, Action> {
       // as part of state publisher updates,
       // process them now
       if !self.bufferedActions.isEmpty {
-        send(self.bufferedActions.removeLast())
+        let task = send(self.bufferedActions.removeLast())
+        tasks.wrappedValue.append(task)
       }
     }
+
 
     while !self.bufferedActions.isEmpty {
       let action = self.bufferedActions.removeFirst()
@@ -417,21 +426,55 @@ public final class Store<State, Action> {
 
       let effect = self.reducer(&currentState, action)
 
+      let effectCancellable = Box<AnyCancellable?>(wrappedValue: nil)
+      let task = Task<Void, Never> { @MainActor in
+        for await _ in AsyncStream<Void>.never {}
+        effectCancellable.wrappedValue?.cancel()
+      }
+      tasks.wrappedValue.append(task)
+
       var didComplete = false
       let uuid = UUID()
-      let effectCancellable = effect.sink(
-        receiveCompletion: { [weak self] _ in
-          self?.threadCheck(status: .effectCompletion(action))
-          didComplete = true
-          self?.effectCancellables[uuid] = nil
-        },
-        receiveValue: { [weak self] effectAction in
-          self?.send(effectAction, originatingFrom: action, instrumentation: instrumentation)
-        }
-      )
+
+      effectCancellable.wrappedValue =
+        effect
+        .handleEvents(
+          receiveCancel: { [weak self] in
+            self?.threadCheck(status: .effectCompletion(action))
+            self?.effectCancellables[uuid] = nil
+          }
+        )
+        .sink(
+          receiveCompletion: { [weak self] _ in
+            self?.threadCheck(status: .effectCompletion(action))
+            task.cancel()
+            didComplete = true
+            self?.effectCancellables[uuid] = nil
+          },
+          receiveValue: { [weak self] effectAction in
+            guard let self = self else { return }
+            tasks.wrappedValue.append(self.send(effectAction, originatingFrom: action, instrumentation: instrumentation))
+          }
+        )
 
       if !didComplete {
-        self.effectCancellables[uuid] = effectCancellable
+        self.effectCancellables[uuid] = effectCancellable.wrappedValue
+      }
+    }
+
+    return Task { @MainActor in
+      await withTaskCancellationHandler {
+        var index = tasks.wrappedValue.startIndex
+        while index < tasks.wrappedValue.endIndex {
+          defer { index += 1 }
+          tasks.wrappedValue[index].cancel()
+        }
+      } operation: {
+        var index = tasks.wrappedValue.startIndex
+        while index < tasks.wrappedValue.endIndex {
+          defer { index += 1 }
+          await tasks.wrappedValue[index].value
+        }
       }
     }
   }

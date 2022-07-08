@@ -1,7 +1,7 @@
 import ComposableArchitecture
 import SwiftUI
 
-private var readMe = """
+private let readMe = """
   This application demonstrates how to make use of SwiftUI's `refreshable` API in the Composable \
   Architecture. Use the "-" and "+" buttons to count up and down, and then pull down to request \
   a fact about that number.
@@ -20,7 +20,7 @@ struct RefreshableState: Equatable {
 enum RefreshableAction: Equatable {
   case cancelButtonTapped
   case decrementButtonTapped
-  case factResponse(Result<String, FactClient.Error>)
+  case factResponse(TaskResult<String>)
   case incrementButtonTapped
   case refresh
 }
@@ -64,58 +64,60 @@ let refreshableReducer = Reducer<
   case .refresh:
     state.fact = nil
     state.isLoading = true
-    return environment.fact.fetch(state.count)
-      .delay(for: .seconds(2), scheduler: environment.mainQueue.animation())
-      .catchToEffect(RefreshableAction.factResponse)
-      .cancellable(id: CancelId.self)
+    return .task { [count = state.count] in
+      try? await environment.mainQueue.sleep(for: 2)
+      return await .factResponse(TaskResult { try await environment.fact.fetch(count) })
+    }
+    .animation()
+    .cancellable(id: CancelId.self)
   }
 }
 
-#if compiler(>=5.5)
-  struct RefreshableView: View {
-    let store: Store<RefreshableState, RefreshableAction>
+struct RefreshableView: View {
+  let store: Store<RefreshableState, RefreshableAction>
 
-    var body: some View {
-      WithViewStore(self.store) { viewStore in
-        List {
-          Text(template: readMe, .body)
+  var body: some View {
+    WithViewStore(self.store) { viewStore in
+      List {
+        Section {
+          AboutView(readMe: readMe)
+        }
 
-          HStack {
-            Button("-") { viewStore.send(.decrementButtonTapped) }
-            Text("\(viewStore.count)")
-            Button("+") { viewStore.send(.incrementButtonTapped) }
-          }
-          .buttonStyle(.plain)
+        HStack {
+          Button("-") { viewStore.send(.decrementButtonTapped) }
+          Text("\(viewStore.count)")
+          Button("+") { viewStore.send(.incrementButtonTapped) }
+        }
+        .buttonStyle(.plain)
 
-          if let fact = viewStore.fact {
-            Text(fact)
-              .bold()
-          }
-          if viewStore.isLoading {
-            Button("Cancel") {
-              viewStore.send(.cancelButtonTapped, animation: .default)
-            }
+        if let fact = viewStore.fact {
+          Text(fact)
+            .bold()
+        }
+        if viewStore.isLoading {
+          Button("Cancel") {
+            viewStore.send(.cancelButtonTapped, animation: .default)
           }
         }
-        .refreshable {
-          await viewStore.send(.refresh, while: \.isLoading)
-        }
+      }
+      .refreshable {
+        await viewStore.send(.refresh).finish()
       }
     }
   }
+}
 
-  struct Refreshable_Previews: PreviewProvider {
-    static var previews: some View {
-      RefreshableView(
-        store: Store(
-          initialState: RefreshableState(),
-          reducer: refreshableReducer,
-          environment: RefreshableEnvironment(
-            fact: .live,
-            mainQueue: .main
-          )
+struct Refreshable_Previews: PreviewProvider {
+  static var previews: some View {
+    RefreshableView(
+      store: Store(
+        initialState: RefreshableState(),
+        reducer: refreshableReducer,
+        environment: RefreshableEnvironment(
+          fact: .live,
+          mainQueue: .main
         )
       )
-    }
+    )
   }
-#endif
+}
