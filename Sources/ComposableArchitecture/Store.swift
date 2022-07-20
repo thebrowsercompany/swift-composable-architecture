@@ -353,7 +353,9 @@ public final class Store<State, Action> {
         instrumentation.callback?(callbackInfo, .post, .storeToLocal)
 
         guard let previousState = localStore?.state.value, let isDuplicate = isDuplicate else {
+            instrumentation.callback?(callbackInfo, .pre, .storeChangeState)
             localStore?.state.value = newLocalState
+            instrumentation.callback?(callbackInfo, .post, .storeChangeState)
             return
         }
 
@@ -362,7 +364,9 @@ public final class Store<State, Action> {
         instrumentation.callback?(callbackInfo, .post, .storeDeduplicate)
 
         if !newStateIsDuplicate {
+            instrumentation.callback?(callbackInfo, .pre, .storeChangeState)
             localStore?.state.value = newLocalState
+            instrumentation.callback?(callbackInfo, .post, .storeChangeState)
         }
       }
     return localStore
