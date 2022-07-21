@@ -76,8 +76,7 @@ public final class ViewStore<State, Action>: ObservableObject {
   ) {
     self._send = {
       let sendCallbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: $0).eraseToAny()
-      instrumentation.callback?(sendCallbackInfo, .pre, .viewStoreSend)
-      defer { instrumentation.callback?(sendCallbackInfo, .post, .viewStoreSend) }
+      let inst = instrumentation(sendCallbackInfo, .viewStoreSend)
 
       store.send($0, instrumentation: instrumentation)
     }
@@ -86,17 +85,13 @@ public final class ViewStore<State, Action>: ObservableObject {
     let stateChangeCallbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: nil as Action?).eraseToAny()
     self.viewCancellable = store.state
       .removeDuplicates(by: {
-        instrumentation.callback?(stateChangeCallbackInfo, .pre, .viewStoreDeduplicate)
-        defer { instrumentation.callback?(stateChangeCallbackInfo, .post, .viewStoreDeduplicate) }
-
+        let inst = instrumentation(stateChangeCallbackInfo, .viewStoreDeduplicate)
         return isDuplicate($0, $1)
       })
       .sink { [weak objectWillChange = self.objectWillChange, weak _state = self._state] in
         guard let objectWillChange = objectWillChange, let _state = _state else { return }
 
-        instrumentation.callback?(stateChangeCallbackInfo, .pre, .viewStoreChangeState)
-        defer { instrumentation.callback?(stateChangeCallbackInfo, .post, .viewStoreChangeState) }
-
+        let inst = instrumentation(stateChangeCallbackInfo, .viewStoreChangeState)
         objectWillChange.send()
         _state.value = $0
       }
@@ -117,9 +112,10 @@ public final class ViewStore<State, Action>: ObservableObject {
     line: UInt = #line
   ) where State == Void {
     self._send = {
-      let sendCallbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: $0).eraseToAny()
-      instrumentation.callback?(sendCallbackInfo, .pre, .viewStoreSend)
-      defer { instrumentation.callback?(sendCallbackInfo, .post, .viewStoreSend) }
+      let inst = instrumentation(
+        Instrumentation.CallbackInfo(storeKind: Self.self, action: $0).eraseToAny(),
+        .viewStoreSend
+      )
 
       store.send($0, instrumentation: instrumentation)
     }

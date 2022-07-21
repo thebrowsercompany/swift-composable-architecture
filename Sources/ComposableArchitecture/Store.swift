@@ -348,25 +348,25 @@ public final class Store<State, Action> {
         guard !isSending else { return }
 
         let callbackInfo = Instrumentation.CallbackInfo<Self.Type, Any>(storeKind: Self.self, action: nil).eraseToAny()
-        instrumentation.callback?(callbackInfo, .pre, .scopedStoreToLocal)
-        let newLocalState = toLocalState(newValue)
-        instrumentation.callback?(callbackInfo, .post, .scopedStoreToLocal)
+        let newLocalState: LocalState = {
+          let inst = instrumentation(callbackInfo, .scopedStoreToLocal)
+          return toLocalState(newValue)
+        } ()
 
         guard let previousState = localStore?.state.value, let isDuplicate = isDuplicate else {
-            instrumentation.callback?(callbackInfo, .pre, .scopedStoreChangeState)
+            let inst = instrumentation(callbackInfo, .scopedStoreChangeState)
             localStore?.state.value = newLocalState
-            instrumentation.callback?(callbackInfo, .post, .scopedStoreChangeState)
             return
         }
 
-        instrumentation.callback?(callbackInfo, .pre, .scopedStoreDeduplicate)
-        let newStateIsDuplicate = isDuplicate(newLocalState, previousState)
-        instrumentation.callback?(callbackInfo, .post, .scopedStoreDeduplicate)
+        let newStateIsDuplicate: Bool = {
+          let inst = instrumentation(callbackInfo, .scopedStoreDeduplicate)
+          return isDuplicate(newLocalState, previousState)
+        }()
 
         if !newStateIsDuplicate {
-            instrumentation.callback?(callbackInfo, .pre, .scopedStoreChangeState)
+            let inst = instrumentation(callbackInfo, .scopedStoreChangeState)
             localStore?.state.value = newLocalState
-            instrumentation.callback?(callbackInfo, .post, .scopedStoreChangeState)
         }
       }
     return localStore
@@ -395,12 +395,10 @@ public final class Store<State, Action> {
     var currentState = self.state.value
 
     let callbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: action, originatingAction: originatingAction).eraseToAny()
-    instrumentation.callback?(callbackInfo, .pre, .storeSend)
-    defer { instrumentation.callback?(callbackInfo, .post, .storeSend) }
+    let inst = instrumentation(callbackInfo, .storeSend)
 
     defer {
-      instrumentation.callback?(callbackInfo, .pre, .storeChangeState)
-      defer { instrumentation.callback?(callbackInfo, .post, .storeChangeState) }
+      let changeInst = instrumentation(callbackInfo, .storeChangeState)
 
       self.state.value = currentState
       self.isSending = false
@@ -416,8 +414,7 @@ public final class Store<State, Action> {
       let action = self.bufferedActions.removeFirst()
 
       let processCallbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: action, originatingAction: nil).eraseToAny()
-      instrumentation.callback?(processCallbackInfo, .pre, .storeProcessEvent)
-      defer { instrumentation.callback?(processCallbackInfo, .post, .storeProcessEvent) }
+      let processInst = instrumentation(processCallbackInfo, .storeProcessEvent)
 
       let effect = self.reducer(&currentState, action)
 

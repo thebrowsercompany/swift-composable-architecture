@@ -72,7 +72,7 @@ public class Instrumentation {
   /// - Parameter timing: When this callback is being invoked (pre|post)
   /// - Parameter kind: The store's activity that to which this callback relates (state update, deduplication, etc)
   public typealias Callback = (_ info: CallbackInfo<Any, Any>, _ timing: CallbackTiming, _ kind: CallbackKind) -> Void
-  let callback: Callback?
+  @usableFromInline let callback: Callback?
 
   /// Used to track when an instance of a `ViewStore` was created
   public typealias ViewStoreCreatedCallback = (_ instance: AnyObject, _ file: StaticString, _ line: UInt) -> Void
@@ -84,6 +84,15 @@ public class Instrumentation {
   public init(callback: Callback? = nil, viewStoreCreated: ViewStoreCreatedCallback? = nil) {
     self.callback = callback
     self.viewStoreCreated = viewStoreCreated
+  }
+
+  @inlinable @inline(__always)
+  func callAsFunction(_ info: CallbackInfo<Any, Any>, _ kind: CallbackKind) -> CallbackScopedObject? {
+    guard let callback = callback else {
+      return nil
+    }
+
+    return .init(callback: callback, info: info, kind: kind)
   }
 }
 
@@ -106,6 +115,28 @@ extension Instrumentation {
 
     func eraseToAny() -> CallbackInfo<Any, Any> {
       return .init(storeKind: (storeKind as Any), action: action.map { $0 as Any }, originatingAction: originatingAction.map { $0 as Any })
+    }
+  }
+}
+
+extension Instrumentation {
+  @usableFromInline
+  class CallbackScopedObject {
+    private let callback: Callback
+    private let info: CallbackInfo<Any, Any>
+    private let kind: CallbackKind
+
+    @usableFromInline
+    init(callback: @escaping Callback, info: CallbackInfo<Any, Any>, kind: CallbackKind) {
+      self.callback = callback
+      self.info = info
+      self.kind = kind
+
+      callback(info, .pre, kind)
+    }
+
+    deinit {
+      callback(info, .post, kind)
     }
   }
 }
