@@ -1,6 +1,56 @@
 import Combine
 import Foundation
 
+public struct MagicIterator {
+    public static var iterationNumber: UInt64 = 0
+    //public static var typenameToLastIteration: [UInt64: ]
+}
+
+public protocol AnyDirtiness {
+    var lastUpdatedIteration: UInt64 { get }
+}
+
+@propertyWrapper public struct Dirtiness<T: Equatable>: AnyDirtiness, Equatable {
+//    public static func == (lhs: Dirtiness<T>, rhs: Dirtiness<T>) -> Bool {
+//        lhs.wrappedValue == rhs.wrappedValue
+//        // lhs.iterationNumber == rhs.iterationNumber
+//    }
+
+    public var lastUpdatedIteration: UInt64 = 0
+
+    public var projectedValue: Self {
+        get { self }
+        set { self = newValue }
+    }
+
+    public var _wrappedValue: T {
+        didSet {
+            if _wrappedValue != oldValue {
+                //NSLog("[YL] Didn't change")
+                lastUpdatedIteration = MagicIterator.iterationNumber
+            }
+
+            //NSLog("[YL] Did set \(type(of: wrappedValue)) iteration number: \(lastUpdatedIteration)")
+        }
+    }
+
+    public var wrappedValue: T {
+        get {
+            if String(describing: type(of: _wrappedValue)) == "AppSidebarState" {
+                NSLog("[YL] Did get \(type(of: _wrappedValue)) iteration number: \(lastUpdatedIteration)")
+            }
+            return _wrappedValue
+        }
+        set {
+            _wrappedValue = newValue
+        }
+    }
+
+    public init(wrappedValue: T) {
+        self._wrappedValue = wrappedValue
+    }
+}
+
 /// A store represents the runtime that powers the application. It is the object that you will pass
 /// around to views that need to interact with the application.
 ///
@@ -323,6 +373,52 @@ public final class Store<State, Action> {
   ///   - toLocalState: A function that transforms `State` into `LocalState`.
   ///   - fromLocalAction: A function that transforms `LocalAction` into `Action`.
   /// - Returns: A new store with its domain (state and action) transformed.
+    public func scope<LocalState, LocalAction>(
+      state toLocalState: @escaping (State) -> Dirtiness<LocalState>,
+      action fromLocalAction: @escaping (LocalAction) -> Action,
+      removeDuplicates isDuplicate: ((LocalState, LocalState) -> Bool)? = nil,
+      file: StaticString = #file,
+      line: UInt = #line,
+      instrumentation: Instrumentation = .shared
+    ) -> Store<LocalState, LocalAction> {
+        self.threadCheck(status: .scope)
+        var isSending = false
+        let localStore = Store<Dirtiness<LocalState>, LocalAction>(
+          initialState: toLocalState(self.state.value),
+          reducer: .init { localState, localAction, _ in
+            isSending = true
+            defer { isSending = false }
+            self.send(fromLocalAction(localAction), file: file, line: line)
+            localState = toLocalState(self.state.value)
+            return .none
+          },
+          environment: ()
+        )
+
+        localStore.parentCancellable = self.state
+          .dropFirst()
+          .sink { [weak localStore] newValue in
+            guard !isSending else { return }
+
+              if let dirtyState = localStore?.state.value {
+                  NSLog("[YL] Have some dirty data")
+                 if dirtyState.lastUpdatedIteration < MagicIterator.iterationNumber {
+                  NSLog("[YL] Getting rid of computation of: \(type(of: localStore?.state))")
+                  return
+                 }
+              }
+
+            let callbackInfo = Instrumentation.CallbackInfo<Self.Type, Any>(storeKind: Self.self, action: nil, file: file, line: line).eraseToAny()
+            instrumentation.callback?(callbackInfo, .pre, .storeToLocal)
+            let newLocalState = toLocalState(newValue)
+            instrumentation.callback?(callbackInfo, .post, .storeToLocal)
+
+            localStore?.state.value = newLocalState
+
+          }
+        return localStore.scope(state: \.wrappedValue)
+    }
+
   public func scope<LocalState, LocalAction>(
     state toLocalState: @escaping (State) -> LocalState,
     action fromLocalAction: @escaping (LocalAction) -> Action,
@@ -348,6 +444,14 @@ public final class Store<State, Action> {
       .dropFirst()
       .sink { [weak localStore] newValue in
         guard !isSending else { return }
+
+          if let dirtyState = localStore?.state as? AnyDirtiness {
+              NSLog("[YL] Have some dirty data")
+             if dirtyState.lastUpdatedIteration < MagicIterator.iterationNumber {
+              NSLog("[YL] Getting rid of computation of: \(type(of: localStore?.state))")
+              return
+             }
+          }
 
         let callbackInfo = Instrumentation.CallbackInfo<Self.Type, Any>(storeKind: Self.self, action: nil, file: file, line: line).eraseToAny()
         instrumentation.callback?(callbackInfo, .pre, .storeToLocal)
