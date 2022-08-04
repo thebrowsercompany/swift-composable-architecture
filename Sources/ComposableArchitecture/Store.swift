@@ -10,6 +10,18 @@ public protocol AnyDirtiness {
     var lastUpdatedIteration: UInt64 { get }
 }
 
+//public protocol TypedDirtiness<T: Equatable>: AnyDirtiness, Equatable {
+//    var lastUpdatedIteration: UInt64 { get }
+//    public var wrappedValue: T
+//}
+//
+//public struct CustomDirtiness<T: Equatable>: TypedDirtiness<T> {
+//    public var lastUpdatedIteration: UInt64 {
+//        _
+//    }
+//
+//}
+
 @propertyWrapper public struct Dirtiness<T: Equatable>: AnyDirtiness, Equatable {
 //    public static func == (lhs: Dirtiness<T>, rhs: Dirtiness<T>) -> Bool {
 //        lhs.wrappedValue == rhs.wrappedValue
@@ -25,20 +37,20 @@ public protocol AnyDirtiness {
 
     public var _wrappedValue: T {
         didSet {
+            if String(describing: type(of: _wrappedValue)) == "AppearanceBasedConfiguration<SemanticColorPalette>" {
+            NSLog("[YL] Did set was called \(type(of: wrappedValue)) iteration number: \(lastUpdatedIteration)")
+            }
             if _wrappedValue != oldValue {
-                //NSLog("[YL] Didn't change")
+                if String(describing: type(of: _wrappedValue)) == "AppearanceBasedConfiguration<SemanticColorPalette>" {
+                NSLog("[YL] Did change")
+                }
                 lastUpdatedIteration = MagicIterator.iterationNumber
             }
-
-            //NSLog("[YL] Did set \(type(of: wrappedValue)) iteration number: \(lastUpdatedIteration)")
         }
     }
 
     public var wrappedValue: T {
         get {
-            if String(describing: type(of: _wrappedValue)) == "AppSidebarState" {
-                NSLog("[YL] Did get \(type(of: _wrappedValue)) iteration number: \(lastUpdatedIteration)")
-            }
             return _wrappedValue
         }
         set {
@@ -48,6 +60,20 @@ public protocol AnyDirtiness {
 
     public init(wrappedValue: T) {
         self._wrappedValue = wrappedValue
+    }
+
+}
+
+extension Dirtiness: Codable where T: Codable {
+
+    public func encode(to encoder: Encoder) throws {
+        // Do nothing
+        try wrappedValue.encode(to: encoder)
+    }
+    public init(from decoder: Decoder) throws {
+        let x = try T.init(from: decoder)
+        self.lastUpdatedIteration = 0
+        self._wrappedValue = x
     }
 }
 
@@ -373,8 +399,8 @@ public final class Store<State, Action> {
   ///   - toLocalState: A function that transforms `State` into `LocalState`.
   ///   - fromLocalAction: A function that transforms `LocalAction` into `Action`.
   /// - Returns: A new store with its domain (state and action) transformed.
-    public func scope<LocalState, LocalAction>(
-      state toLocalState: @escaping (State) -> Dirtiness<LocalState>,
+    public func scope<LocalState: AnyDirtiness, LocalAction>(
+      state toLocalState: @escaping (State) -> LocalState,
       action fromLocalAction: @escaping (LocalAction) -> Action,
       removeDuplicates isDuplicate: ((LocalState, LocalState) -> Bool)? = nil,
       file: StaticString = #file,
@@ -383,7 +409,7 @@ public final class Store<State, Action> {
     ) -> Store<LocalState, LocalAction> {
         self.threadCheck(status: .scope)
         var isSending = false
-        let localStore = Store<Dirtiness<LocalState>, LocalAction>(
+        let localStore = Store<LocalState, LocalAction>(
           initialState: toLocalState(self.state.value),
           reducer: .init { localState, localAction, _ in
             isSending = true
@@ -395,28 +421,29 @@ public final class Store<State, Action> {
           environment: ()
         )
 
+        var didFirst = false
         localStore.parentCancellable = self.state
           .dropFirst()
           .sink { [weak localStore] newValue in
             guard !isSending else { return }
 
-              if let dirtyState = localStore?.state.value {
-                  NSLog("[YL] Have some dirty data")
-                 if dirtyState.lastUpdatedIteration < MagicIterator.iterationNumber {
-                  NSLog("[YL] Getting rid of computation of: \(type(of: localStore?.state))")
-                  return
-                 }
-              }
+              let callbackInfo = Instrumentation.CallbackInfo<Self.Type, Any>(storeKind: Self.self, action: nil, file: file, line: line).eraseToAny()
+              instrumentation.callback?(callbackInfo, .pre, .storeToLocal)
+              let newLocalState = toLocalState(newValue)
+              instrumentation.callback?(callbackInfo, .post, .storeToLocal)
 
-            let callbackInfo = Instrumentation.CallbackInfo<Self.Type, Any>(storeKind: Self.self, action: nil, file: file, line: line).eraseToAny()
-            instrumentation.callback?(callbackInfo, .pre, .storeToLocal)
-            let newLocalState = toLocalState(newValue)
-            instrumentation.callback?(callbackInfo, .post, .storeToLocal)
+              if didFirst, newLocalState.lastUpdatedIteration < MagicIterator.iterationNumber {
+//                  NSLog("[YL] Getting rid of computation of: \(type(of: localStore?.state))")
+                  return
+              } else {
+                  NSLog("[YL] Propagating")
+                  didFirst = true
+              }
 
             localStore?.state.value = newLocalState
 
           }
-        return localStore.scope(state: \.wrappedValue)
+        return localStore
     }
 
   public func scope<LocalState, LocalAction>(
@@ -444,14 +471,6 @@ public final class Store<State, Action> {
       .dropFirst()
       .sink { [weak localStore] newValue in
         guard !isSending else { return }
-
-          if let dirtyState = localStore?.state as? AnyDirtiness {
-              NSLog("[YL] Have some dirty data")
-             if dirtyState.lastUpdatedIteration < MagicIterator.iterationNumber {
-              NSLog("[YL] Getting rid of computation of: \(type(of: localStore?.state))")
-              return
-             }
-          }
 
         let callbackInfo = Instrumentation.CallbackInfo<Self.Type, Any>(storeKind: Self.self, action: nil, file: file, line: line).eraseToAny()
         instrumentation.callback?(callbackInfo, .pre, .storeToLocal)
