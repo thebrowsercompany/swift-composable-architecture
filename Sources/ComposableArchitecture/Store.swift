@@ -1,6 +1,48 @@
 import Combine
 import Foundation
 
+public typealias ChangeMarker = UInt64
+
+public protocol ChangeMarkerProviding {
+    var marker: ChangeMarker { get }
+}
+
+extension Int: ChangeMarkerProviding {
+    public var marker: ChangeMarker { ChangeMarker(self) }
+}
+
+public struct AnyStateWrapper: ChangeMarkerProviding {
+    public var marker: ChangeMarker
+    init<Value>(_ wrapper: StateWrapper<Value>) {
+        marker = wrapper.lastChange
+    }
+}
+
+@propertyWrapper public struct StateWrapper<Value> {
+    public private(set) var lastChange: ChangeMarker = .random(in: ChangeMarker.min..<ChangeMarker.max)
+
+    public var wrappedValue: Value {
+        didSet {
+            lastChange = .random(in: ChangeMarker.min..<ChangeMarker.max)
+            print("Changing \(type(of: Value.self))")
+        }
+    }
+
+    public var projectedValue: AnyStateWrapper {
+        AnyStateWrapper(self)
+    }
+
+    public init(wrappedValue: Value) {
+        self.wrappedValue = wrappedValue
+    }
+}
+
+extension StateWrapper: Equatable where Value: Equatable {
+    static public func ==(lhs: StateWrapper<Value>, rhs: StateWrapper<Value>) -> Bool {
+        lhs.lastChange == rhs.lastChange
+    }
+}
+
 /// A store represents the runtime that powers the application. It is the object that you will pass
 /// around to views that need to interact with the application.
 ///
@@ -369,6 +411,56 @@ public final class Store<State, Action> {
       }
     return localStore
   }
+
+    public typealias DependencyChecker = (State) -> ChangeMarkerProviding
+
+    public func scope<LocalState, LocalAction>(
+        dependencies: [DependencyChecker],
+        state toLocalState: @escaping (State) -> LocalState,
+        action fromLocalAction: @escaping (LocalAction) -> Action,
+        debugName: String,
+        file: StaticString = #file,
+        line: UInt = #line,
+        instrumentation: Instrumentation = .shared
+    ) -> Store<LocalState, LocalAction> {
+        self.threadCheck(status: .scope)
+        var isSending = false
+        let localStore = Store<LocalState, LocalAction>(
+            initialState: toLocalState(self.state.value),
+            reducer: .init { localState, localAction, _ in
+                isSending = true
+                defer { isSending = false }
+                self.send(fromLocalAction(localAction), file: file, line: line)
+                localState = toLocalState(self.state.value)
+                return .none
+            },
+            environment: ()
+        )
+        var lastHash: UInt64 = 0
+
+        localStore.parentCancellable = self.state
+            .dropFirst()
+            .sink { [weak localStore] parentState in
+                guard !isSending else { return }
+
+                guard localStore?.state.value != nil else {
+                    localStore?.state.value = toLocalState(parentState)
+                    return
+                }
+
+                let finalHash = dependencies.reduce(0, { result, dependency in
+                    return result ^ dependency(parentState).marker
+                })
+
+                if finalHash != lastHash {
+                    lastHash = finalHash
+                    localStore?.state.value = toLocalState(parentState)
+                } else {
+                    print("-> Skipping \(debugName) since hashes matched")
+                }
+            }
+        return localStore
+    }
 
   /// Scopes the store to one that exposes local state.
   ///
