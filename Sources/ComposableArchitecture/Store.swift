@@ -133,7 +133,7 @@ public final class Store<State, Action> {
     private let mainThreadChecksEnabled: Bool
   #endif
 
-  let instrumentation: Instrumentation
+  public let instrumentation: Instrumentation
 
   /// Initializes a store from an initial state, a reducer, and an environment.
   ///
