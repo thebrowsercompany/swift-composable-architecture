@@ -72,11 +72,11 @@ public class Instrumentation {
   /// - Parameter timing: When this callback is being invoked (pre|post)
   /// - Parameter kind: The store's activity that to which this callback relates (state update, deduplication, etc)
   public typealias Callback = (_ info: CallbackInfo<Any, Any>, _ timing: CallbackTiming, _ kind: CallbackKind) -> Void
-  var callback: Callback?
+  private(set) var callback: Callback?
 
   /// Used to track when/where an instance of a `ViewStore` was create
   public typealias ViewStoreCreatedCallback = (_ instance: AnyObject, _ file: StaticString, _ line: UInt) -> Void
-  var viewStoreCreated: ViewStoreCreatedCallback?
+  private(set) var viewStoreCreated: ViewStoreCreatedCallback?
 
   public static let noop = Instrumentation()
 
