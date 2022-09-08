@@ -668,4 +668,57 @@ final class StoreTests: XCTestCase {
       .updateCity("USA")
     ], "Failed to process actions in order.")
   }
+
+  func testBufferedActionsReentrance() {
+    struct State: Equatable {}
+    enum Action: Equatable {
+      case start
+      case kickOffAction
+      case actionSender(ActionSender)
+      case stop
+    }
+    struct Environment {
+      var longRunningEffect: () -> Effect<Action, Never>
+    }
+    let passThroughSubject = PassthroughSubject<Action, Never>()
+    
+    let reducer = Reducer<State, Action, Environment> { state, action, env in
+      switch action {
+      case .start:
+        return env.longRunningEffect()
+      case .kickOffAction:
+          return .init(value: .actionSender(.init(completion: { passThroughSubject.send(.stop)})))
+      case .actionSender:
+        return .none
+      case .stop:
+        return .none
+      }
+    }
+
+    let store = Store(
+      initialState: .init(),
+      reducer: reducer,
+      environment: .init(longRunningEffect: { passThroughSubject.eraseToEffect() })
+    )
+
+    let viewStore = ViewStore(store)
+    // Starts a long living effect
+    viewStore.send(.start)
+    // Kicks off an action that send something into the store
+    // via its environment on deinit
+    viewStore.send(.kickOffAction)
+  }
+}
+
+final class ActionSender: Equatable {
+  static func == (lhs: ActionSender, rhs: ActionSender) -> Bool { true }
+  private let completion: () -> ()
+
+  init(completion: @escaping () -> ()) {
+    self.completion = completion
+  }
+
+  deinit {
+    completion()
+  }
 }

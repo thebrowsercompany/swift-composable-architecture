@@ -361,19 +361,27 @@ public final class Store<State, Action> {
 
       self.state.value = currentState
       self.isSending = false
-      // if new actions were added synchronously
-      // as part of state publisher updates, process them now
-      if currentIndex < bufferedActions.endIndex {
-        // pick out the last item, as this get re-queued once we hit `send(...)`
-        // (send *then* processes the bufferedActions from the beginning)
-        let lastItemIndex = bufferedActions.endIndex.advanced(by: -1)
-        let action = self.bufferedActions[lastItemIndex]
-        self.bufferedActions = Array(self.bufferedActions[currentIndex..<lastItemIndex])
-        if let task = send(action, file: file, line: line) {
-          tasks.wrappedValue.append(task)
+
+      // It's possible that deallocating actions from the `bufferedActions` array
+      // actually sends actions back into this store. Given we're modifying
+      // `bufferedActions` on entry, let's make sure this only happens once
+      // we're ready with all manipulations
+      let actions = self.bufferedActions
+      withExtendedLifetime(actions) {
+        // if new actions were added synchronously
+        // as part of state publisher updates, process them now
+        if currentIndex < bufferedActions.endIndex {
+          // pick out the last item, as this get re-queued once we hit `send(...)`
+          // (send *then* processes the bufferedActions from the beginning)
+          let lastItemIndex = bufferedActions.endIndex.advanced(by: -1)
+          let action = self.bufferedActions[lastItemIndex]
+          self.bufferedActions = Array(self.bufferedActions[currentIndex..<lastItemIndex])
+          if let task = send(action, file: file, line: line) {
+            tasks.wrappedValue.append(task)
+          }
+        } else {
+          self.bufferedActions = []
         }
-      } else {
-        self.bufferedActions = []
       }
     }
 
