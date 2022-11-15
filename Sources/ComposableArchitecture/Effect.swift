@@ -1,57 +1,41 @@
-import Combine
+import OpenCombineShim
 import Foundation
-import SwiftUI
 import XCTestDynamicOverlay
 
-/// This type is deprecated in favor of ``EffectTask``. See its documentation for more information.
-@available(
-  iOS,
-  deprecated: 9999.0,
-  message:
-    """
-    'EffectPublisher' has been deprecated in favor of 'EffectTask'.
+/// A type that encapsulates a unit of work that can be run in the outside world, and can feed
+/// actions back to the ``Store``.
+///
+/// Effects are the perfect place to do side effects, such as network requests, saving/loading
+/// from disk, creating timers, interacting with dependencies, and more. They are returned from
+/// reducers so that the ``Store`` can perform the effects after the reducer is done running.
+///
+/// There are 2 distinct ways to create an `Effect`: one using Swift's native concurrency tools, and
+/// the other using Apple's Combine framework:
+///
+/// * If using Swift's native structured concurrency tools then there are 3 main ways to create an
+/// effect, depending on if you want to emit one single action back into the system, or any number
+/// of actions, or just execute some work without emitting any actions:
+///   * ``EffectPublisher/task(priority:operation:catch:file:fileID:line:)``
+///   * ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)``
+///   * ``EffectPublisher/fireAndForget(priority:_:)``
+/// * If using Combine in your application, in particular for the dependencies of your feature
+/// then you can create effects by making use of any of Combine's operators, and then erasing the
+/// publisher type to ``EffectPublisher`` with either `eraseToEffect` or `catchToEffect`. Note that
+/// the Combine interface to ``EffectPublisher`` is considered soft deprecated, and you should
+/// eventually port to Swift's native concurrency tools.
+///
+/// > Important: ``Store`` is not thread safe, and so all effects must receive values on the same
+/// thread. This is typically the main thread,  **and** if the store is being used to drive UI then
+/// it must receive values on the main thread.
+/// >
+/// > This is only an issue if using the Combine interface of ``EffectPublisher`` as mentioned
+/// above. If  you are using Swift's concurrency tools and the `.task`, `.run` and `.fireAndForget`
+/// functions on ``EffectTask``, then threading is automatically handled for you.
 
-     You are encouraged to use `EffectTask<Action>` to model the output of your reducers, and to use Swift concurrency to model asynchrony in dependencies.
+#if canImport(SwiftUI)
+  import SwiftUI
+#endif
 
-     See the migration roadmap for more information: https://github.com/pointfreeco/swift-composable-architecture/discussions/1477
-    """
-)
-@available(
-  macOS,
-  deprecated: 9999.0,
-  message:
-    """
-    'EffectPublisher' has been deprecated in favor of 'EffectTask'.
-
-     You are encouraged to use `EffectTask<Action>` to model the output of your reducers, and to use Swift concurrency to model asynchrony in dependencies.
-
-     See the migration roadmap for more information: https://github.com/pointfreeco/swift-composable-architecture/discussions/1477
-    """
-)
-@available(
-  tvOS,
-  deprecated: 9999.0,
-  message:
-    """
-    'EffectPublisher' has been deprecated in favor of 'EffectTask'.
-
-     You are encouraged to use `EffectTask<Action>` to model the output of your reducers, and to use Swift concurrency to model asynchrony in dependencies.
-
-     See the migration roadmap for more information: https://github.com/pointfreeco/swift-composable-architecture/discussions/1477
-    """
-)
-@available(
-  watchOS,
-  deprecated: 9999.0,
-  message:
-    """
-    'EffectPublisher' has been deprecated in favor of 'EffectTask'.
-
-     You are encouraged to use `EffectTask<Action>` to model the output of your reducers, and to use Swift concurrency to model asynchrony in dependencies.
-
-     See the migration roadmap for more information: https://github.com/pointfreeco/swift-composable-architecture/discussions/1477
-    """
-)
 public struct EffectPublisher<Action, Failure: Error> {
   @usableFromInline
   enum Operation {
@@ -175,13 +159,34 @@ extension EffectPublisher where Failure == Never {
     fileID: StaticString = #fileID,
     line: UInt = #line
   ) -> Self {
-    withEscapedDependencies { escaped in
-      Self(
-        operation: .run(priority) { send in
-          await escaped.yield {
-            do {
-              try await send(operation())
-            } catch is CancellationError {
+    let dependencies = DependencyValues._current
+    return Self(
+      operation: .run(priority) { send in
+        await DependencyValues.$_current.withValue(dependencies) {
+          do {
+            try await send(operation())
+          } catch is CancellationError {
+            return
+          } catch {
+            guard let handler = handler else {
+              // #if os(macOS)
+              // #if DEBUG
+              //   var errorDump = ""
+              //   customDump(error, to: &errorDump, indent: 4)
+              //   runtimeWarn(
+              //     """
+              //     An "EffectTask.task" returned from "\(fileID):\(line)" threw an unhandled error. …
+
+              //     \(errorDump)
+
+              //     All non-cancellation errors must be explicitly handled via the "catch" parameter \
+              //     on "EffectTask.task", or via a "do" block.
+              //     """,
+              //     file: file,
+              //     line: line
+              //   )
+              // #endif
+              // #endif
               return
             } catch {
               guard let handler = handler else {
@@ -259,13 +264,32 @@ extension EffectPublisher where Failure == Never {
     fileID: StaticString = #fileID,
     line: UInt = #line
   ) -> Self {
-    withEscapedDependencies { escaped in
-      Self(
-        operation: .run(priority) { send in
-          await escaped.yield {
-            do {
-              try await operation(send)
-            } catch is CancellationError {
+    let dependencies = DependencyValues._current
+    return Self(
+      operation: .run(priority) { send in
+        await DependencyValues.$_current.withValue(dependencies) {
+          do {
+            try await operation(send)
+          } catch is CancellationError {
+            return
+          } catch {
+            guard let handler = handler else {
+              // #if DEBUG
+              //   var errorDump = ""
+              //   customDump(error, to: &errorDump, indent: 4)
+              //   runtimeWarn(
+              //     """
+              //     An "EffectTask.run" returned from "\(fileID):\(line)" threw an unhandled error. …
+
+              //     \(errorDump)
+
+              //     All non-cancellation errors must be explicitly handled via the "catch" parameter \
+              //     on "EffectTask.run", or via a "do" block.
+              //     """,
+              //     file: file,
+              //     line: line
+              //   )
+              // #endif
               return
             } catch {
               guard let handler = handler else {
@@ -397,29 +421,70 @@ public struct Send<Action> {
     self.send(action)
   }
 
-  /// Sends an action back into the system from an effect with animation.
-  ///
-  /// - Parameters:
-  ///   - action: An action.
-  ///   - animation: An animation.
-  public func callAsFunction(_ action: Action, animation: Animation?) {
-    callAsFunction(action, transaction: Transaction(animation: animation))
-  }
-
-  /// Sends an action back into the system from an effect with transaction.
-  ///
-  /// - Parameters:
-  ///   - action: An action.
-  ///   - transaction: A transaction.
-  public func callAsFunction(_ action: Action, transaction: Transaction) {
-    guard !Task.isCancelled else { return }
-    withTransaction(transaction) {
-      self(action)
+  #if canImport(SwiftUI)
+    /// Sends an action back into the system from an effect with animation.
+    ///
+    /// - Parameters:
+    ///   - action: An action.
+    ///   - animation: An animation.
+    public func callAsFunction(_ action: Action, animation: Animation?) {
+      guard !Task.isCancelled else { return }
+      withAnimation(animation) {
+        self(action)
+      }
     }
-  }
+  #endif
 }
 
+// MARK: - Creating Effects
+
+/// A convenience type alias for referring to an effect that can never fail, like the kind of
+/// ``EffectPublisher`` returned by a reducer after processing an action.
+///
+/// Instead of specifying `Never` as `Failure`:
+///
+/// ```swift
+/// func reduce(into state: inout State, action: Action) -> EffectPublisher<Action, Never> { … }
+/// ```
+///
+/// You can specify a single generic:
+///
+/// ```swift
+/// func reduce(into state: inout State, action: Action) -> EffectTask<Action>  { … }
+/// ```
+
+/// A type that can send actions back into the system when used from
+/// ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)``.
+///
+/// This type implements [`callAsFunction`][callAsFunction] so that you invoke it as a function
+/// rather than calling methods on it:
+///
+/// ```swift
+/// return .run { send in
+///   send(.started)
+///   defer { send(.finished) }
+///   for await event in self.events {
+///     send(.event(event))
+///   }
+/// }
+/// ```
+///
+/// You can also send actions with animation:
+///
+/// ```swift
+/// send(.started, animation: .spring())
+/// defer { send(.finished, animation: .default) }
+/// ```
+///
+/// See ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)`` for more information on how to
+/// use this value to construct effects that can emit any number of times in an asynchronous
+/// context.
+///
+/// [callAsFunction]: https://docs.swift.org/swift-book/ReferenceManual/Declarations.html#ID622
+
 // MARK: - Composing Effects
+
+// MARK: - Testing Effects
 
 extension EffectPublisher {
   /// Merges a variadic list of effects together into a single effect, which runs the effects at the
@@ -454,7 +519,8 @@ extension EffectPublisher {
     case (.none, _):
       return other
     case (.publisher, .publisher), (.run, .publisher), (.publisher, .run):
-      return Self(operation: .publisher(Publishers.Merge(self, other).eraseToAnyPublisher()))
+      fatalError("TODO: windows - Publishers.Merge doesn't exist in OpenCombine")
+      // return Self(operation: .publisher(Publishers.Merge(self, other).eraseToAnyPublisher()))
     case let (.run(lhsPriority, lhsOperation), .run(rhsPriority, rhsOperation)):
       return Self(
         operation: .run { send in
@@ -535,7 +601,9 @@ extension EffectPublisher {
   /// - Returns: A publisher that uses the provided closure to map elements from the upstream effect
   ///   to new elements that it then publishes.
   @inlinable
-  public func map<T>(_ transform: @escaping (Action) -> T) -> EffectPublisher<T, Failure> {
+  public
+    func map<T>(_ transform: @escaping (Action) -> T) -> EffectPublisher<T, Failure>
+  {
     switch self.operation {
     case .none:
       return .none
@@ -572,6 +640,54 @@ extension EffectPublisher {
     }
   }
 }
+
+// MARK: - Creating Effects
+
+/// A convenience type alias for referring to an effect that can never fail, like the kind of
+/// ``EffectPublisher`` returned by a reducer after processing an action.
+///
+/// Instead of specifying `Never` as `Failure`:
+///
+/// ```swift
+/// func reduce(into state: inout State, action: Action) -> EffectPublisher<Action, Never> { … }
+/// ```
+///
+/// You can specify a single generic:
+///
+/// ```swift
+/// func reduce(into state: inout State, action: Action) -> EffectTask<Action>  { … }
+/// ```
+
+/// A type that can send actions back into the system when used from
+/// ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)``.
+///
+/// This type implements [`callAsFunction`][callAsFunction] so that you invoke it as a function
+/// rather than calling methods on it:
+///
+/// ```swift
+/// return .run { send in
+///   send(.started)
+///   defer { send(.finished) }
+///   for await event in self.events {
+///     send(.event(event))
+///   }
+/// }
+/// ```
+///
+/// You can also send actions with animation:
+///
+/// ```swift
+/// send(.started, animation: .spring())
+/// defer { send(.finished, animation: .default) }
+/// ```
+///
+/// See ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)`` for more information on how to
+/// use this value to construct effects that can emit any number of times in an asynchronous
+/// context.
+///
+/// [callAsFunction]: https://docs.swift.org/swift-book/ReferenceManual/Declarations.html#ID622
+
+// MARK: - Composing Effects
 
 // MARK: - Testing Effects
 
@@ -697,6 +813,56 @@ extension EffectPublisher {
     }
   }
 }
+
+// MARK: - Creating Effects
+
+/// A convenience type alias for referring to an effect that can never fail, like the kind of
+/// ``EffectPublisher`` returned by a reducer after processing an action.
+///
+/// Instead of specifying `Never` as `Failure`:
+///
+/// ```swift
+/// func reduce(into state: inout State, action: Action) -> EffectPublisher<Action, Never> { … }
+/// ```
+///
+/// You can specify a single generic:
+///
+/// ```swift
+/// func reduce(into state: inout State, action: Action) -> EffectTask<Action>  { … }
+/// ```
+
+/// A type that can send actions back into the system when used from
+/// ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)``.
+///
+/// This type implements [`callAsFunction`][callAsFunction] so that you invoke it as a function
+/// rather than calling methods on it:
+///
+/// ```swift
+/// return .run { send in
+///   send(.started)
+///   defer { send(.finished) }
+///   for await event in self.events {
+///     send(.event(event))
+///   }
+/// }
+/// ```
+///
+/// You can also send actions with animation:
+///
+/// ```swift
+/// send(.started, animation: .spring())
+/// defer { send(.finished, animation: .default) }
+/// ```
+///
+/// See ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)`` for more information on how to
+/// use this value to construct effects that can emit any number of times in an asynchronous
+/// context.
+///
+/// [callAsFunction]: https://docs.swift.org/swift-book/ReferenceManual/Declarations.html#ID622
+
+// MARK: - Composing Effects
+
+// MARK: - Testing Effects
 
 @available(
   *,

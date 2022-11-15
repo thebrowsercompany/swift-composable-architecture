@@ -495,7 +495,7 @@
         XCTAssertEqual(store.state, 86)
       }
     }
-
+#if canImport(Combine)
     func testPartialExhaustivityPrefix() async {
       let testScheduler = DispatchQueue.test
       enum Action {
@@ -536,6 +536,7 @@
       // Ignored received action: .response(1729)
       // Ignore in-flight effect
     }
+#endif
 
     func testCasePathReceive_PartialExhaustive() async {
       let store = TestStore(
@@ -749,6 +750,7 @@
       }
     }
 
+#if canImport(Combine)
     // This example comes from Krzysztof Zabłocki's blog post:
     // https://www.merowing.info/exhaustive-testing-in-tca/
     func testKrzysztofExample1() {
@@ -780,6 +782,7 @@
       }
     }
 
+
     // This example comes from Krzysztof Zabłocki's blog post:
     // https://www.merowing.info/exhaustive-testing-in-tca/
     func testKrzysztofExample3() {
@@ -800,7 +803,9 @@
       }
       XCTAssertEqual(store.state.age, 34)
     }
+#endif
   }
+
 
   struct Counter: ReducerProtocol {
     struct State: Equatable {
@@ -856,6 +861,7 @@
     }
   }
 
+#if !os(Windows)
   // This example comes from Krzysztof Zabłocki's blog post:
   // https://www.merowing.info/exhaustive-testing-in-tca/
   struct KrzysztofExample: ReducerProtocol {
@@ -898,4 +904,5 @@
       }
     }
   }
+#endif
 #endif

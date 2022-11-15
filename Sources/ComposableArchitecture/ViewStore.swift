@@ -1,5 +1,8 @@
-import Combine
-import SwiftUI
+import OpenCombineShim
+
+#if canImport(SwiftUI)
+  import SwiftUI
+#endif
 
 /// A `ViewStore` is an object that can observe state changes and send actions. They are most
 /// commonly used in views, such as SwiftUI views, UIView or UIViewController, but they can be used
@@ -352,7 +355,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   public func send(_ action: ViewAction) -> ViewStoreTask {
     .init(rawValue: self._send(action))
   }
-
+  #if canImport(SwiftUI)
   /// Sends an action to the store with a given animation.
   ///
   /// See ``ViewStore/send(_:)`` for more info.
@@ -362,22 +365,11 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   ///   - animation: An animation.
   @discardableResult
   public func send(_ action: ViewAction, animation: Animation?) -> ViewStoreTask {
-    send(action, transaction: Transaction(animation: animation))
-  }
-
-  /// Sends an action to the store with a given transaction.
-  ///
-  /// See ``ViewStore/send(_:)`` for more info.
-  ///
-  /// - Parameters:
-  ///   - action: An action.
-  ///   - transaction: A transaction.
-  @discardableResult
-  public func send(_ action: ViewAction, transaction: Transaction) -> ViewStoreTask {
-    withTransaction(transaction) {
-      self.send(action)
+      withAnimation(animation) {
+        self.send(action)
+      }
     }
-  }
+  #endif
 
   /// Sends an action into the store and then suspends while a piece of state is `true`.
   ///
@@ -459,7 +451,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       task.rawValue?.cancel()
     }
   }
-
+  #if canImport(SwiftUI)
   /// Sends an action into the store and then suspends while a piece of state is `true`.
   ///
   /// See the documentation of ``send(_:while:)`` for more information.
@@ -468,7 +460,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   ///   - action: An action.
   ///   - animation: The animation to perform when the action is sent.
   ///   - predicate: A predicate on `ViewState` that determines for how long this method should
-  ///     suspend.
+  ///                suspend.
   @MainActor
   public func send(
     _ action: ViewAction,
@@ -482,7 +474,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       task.rawValue?.cancel()
     }
   }
-
+  #endif
   /// Suspends the current task while a predicate on state is `true`.
   ///
   /// If you want to suspend at the same time you send an action to the view store, use
@@ -519,7 +511,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       }
     }
   }
-
+  #if canImport(SwiftUI)
   /// Derives a binding from the store that prevents direct writes to state and instead sends
   /// actions to the store.
   ///
@@ -644,6 +636,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   public func binding(send action: ViewAction) -> Binding<ViewState> {
     self.binding(send: { _ in action })
   }
+  #endif
 
   private subscript<Value>(
     get state: HashableWrapper<(ViewState) -> Value>,

@@ -1,4 +1,4 @@
-import Combine
+import OpenCombineShim
 
 extension EffectPublisher {
   /// Turns an effect into one that can be debounced.

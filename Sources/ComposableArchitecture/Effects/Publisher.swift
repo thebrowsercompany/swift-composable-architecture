@@ -1,26 +1,13 @@
-import Combine
+import OpenCombineShim
 
-extension EffectPublisher where Failure == Never {
-  /// Creates an effect from a Combine publisher.
-  ///
-  /// - Parameter createPublisher: The closure to execute when the effect is performed.
-  /// - Returns: An effect wrapping a Combine publisher.
-  public static func publisher<P: Publisher>(_ createPublisher: @escaping () -> P) -> Self
-  where P.Output == Action, P.Failure == Never {
-    Self(
-      operation: .publisher(Deferred(createPublisher: createPublisher).eraseToAnyPublisher())
-    )
-  }
-}
-
-@available(iOS, deprecated: 9999.0)
-@available(macOS, deprecated: 9999.0)
-@available(tvOS, deprecated: 9999.0)
-@available(watchOS, deprecated: 9999.0)
+// @available(iOS, deprecated: 9999.0)
+// @available(macOS, deprecated: 9999.0)
+// @available(tvOS, deprecated: 9999.0)
+// @available(watchOS, deprecated: 9999.0)
 extension EffectPublisher: Publisher {
   public typealias Output = Action
 
-  public func receive<S: Combine.Subscriber>(
+  public func receive<S: CombineSubscriber>(
     subscriber: S
   ) where S.Input == Action, S.Failure == Failure {
     self.publisher.subscribe(subscriber)
@@ -36,31 +23,8 @@ extension EffectPublisher: Publisher {
       return .create { subscriber in
         let task = Task(priority: priority) { @MainActor in
           defer { subscriber.send(completion: .finished) }
-          #if DEBUG
-            var isCompleted = false
-            defer { isCompleted = true }
-          #endif
-          let send = Send<Action> {
-            #if DEBUG
-              if isCompleted {
-                runtimeWarn(
-                  """
-                  An action was sent from a completed effect:
-
-                    Action:
-                      \(debugCaseOutput($0))
-
-                  Avoid sending actions using the 'send' argument from 'EffectTask.run' after \
-                  the effect has completed. This can happen if you escape the 'send' argument in \
-                  an unstructured context.
-
-                  To fix this, make sure that your 'run' closure does not return until you're \
-                  done calling 'send'.
-                  """
-                )
-              }
-            #endif
-            subscriber.send($0)
+          let send = Send { action in
+            subscriber.send(action)
           }
           await operation(send)
         }

@@ -1,5 +1,5 @@
-import Combine
 import Foundation
+import OpenCombineShim
 
 final class CurrentValueRelay<Output>: Publisher {
   typealias Failure = Never
