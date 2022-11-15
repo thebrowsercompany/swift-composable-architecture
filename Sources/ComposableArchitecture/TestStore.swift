@@ -1,4 +1,4 @@
-import Combine
+import OpenCombineShim
 import CustomDump
 import Foundation
 import XCTestDynamicOverlay
@@ -2219,7 +2219,9 @@ private func _XCTExpectFailure(
   strict: Bool = true,
   failingBlock: () -> Void
 ) {
+  // TODO: windows
   #if DEBUG
+  #if os(macOS)
     guard
       let XCTExpectedFailureOptions = NSClassFromString("XCTExpectedFailureOptions")
         as Any as? NSObjectProtocol,
@@ -2237,5 +2239,6 @@ private func _XCTExpectFailure(
     )
 
     XCTExpectFailureWithOptionsInBlock(failureReason, options, failingBlock)
+  #endif
   #endif
 }

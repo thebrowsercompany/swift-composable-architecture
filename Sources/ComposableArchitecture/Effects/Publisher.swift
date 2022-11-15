@@ -1,13 +1,13 @@
-import Combine
+import OpenCombineShim
 
-@available(iOS, deprecated: 9999.0)
-@available(macOS, deprecated: 9999.0)
-@available(tvOS, deprecated: 9999.0)
-@available(watchOS, deprecated: 9999.0)
+// @available(iOS, deprecated: 9999.0)
+// @available(macOS, deprecated: 9999.0)
+// @available(tvOS, deprecated: 9999.0)
+// @available(watchOS, deprecated: 9999.0)
 extension EffectPublisher: Publisher {
   public typealias Output = Action
 
-  public func receive<S: Combine.Subscriber>(
+  public func receive<S: CombineSubscriber>(
     subscriber: S
   ) where S.Input == Action, S.Failure == Failure {
     self.publisher.subscribe(subscriber)
@@ -23,7 +23,9 @@ extension EffectPublisher: Publisher {
       return .create { subscriber in
         let task = Task(priority: priority) { @MainActor in
           defer { subscriber.send(completion: .finished) }
-          let send = Send { subscriber.send($0) }
+          let send = Send { action in
+            subscriber.send(action)
+          }
           await operation(send)
         }
         return AnyCancellable {

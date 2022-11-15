@@ -1,4 +1,4 @@
-import Combine
+import OpenCombineShim
 
 extension EffectPublisher {
   /// Returns an effect that will be executed after given `dueTime`.

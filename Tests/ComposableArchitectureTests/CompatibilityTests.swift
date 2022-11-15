@@ -1,8 +1,10 @@
-import Combine
 import ComposableArchitecture
+import OpenCombineShim
 import XCTest
 
-@MainActor
+// TODO: windows
+// `Could not cast value of type '(ComposableArchitectureTests.CompatibilityTests) -> @Swift.MainActor () -> ()' (00007FFE8145A5B0) to '(ComposableArchitectureTests.CompatibilityTests) -> () -> ()' (00007FFE8145A760).`
+// @MainActor
 final class CompatibilityTests: XCTestCase {
   var cancellables: Set<AnyCancellable> = []
 

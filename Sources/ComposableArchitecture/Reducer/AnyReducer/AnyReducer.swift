@@ -1,5 +1,5 @@
 import CasePaths
-import Combine
+import OpenCombineShim
 
 /// This API has been soft-deprecated in favor of ``ReducerProtocol``.
 /// Read <doc:MigratingToTheReducerProtocol> for more information.

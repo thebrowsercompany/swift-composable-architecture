@@ -1,5 +1,6 @@
-import Combine
 import Foundation
+import OpenCombineShim
+
 
 extension EffectPublisher {
   /// Turns an effect into one that is capable of being canceled.

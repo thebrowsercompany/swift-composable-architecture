@@ -1,8 +1,10 @@
-import Combine
+import OpenCombineShim
 import ComposableArchitecture
 import CustomDump
 import XCTest
+#if canImport(os.signpost)
 import os.signpost
+#endif
 
 @MainActor
 final class ReducerTests: XCTestCase {
@@ -226,6 +228,7 @@ final class ReducerTests: XCTestCase {
     }
   #endif
 
+  #if canImport(os.signpost) 
   func testDefaultSignpost() {
     let reducer = EmptyReducer<Int, Void>().signpost(log: .default)
     var n = 0
@@ -247,4 +250,5 @@ final class ReducerTests: XCTestCase {
       .store(in: &self.cancellables)
     self.wait(for: [expectation], timeout: 0.1)
   }
+  #endif
 }

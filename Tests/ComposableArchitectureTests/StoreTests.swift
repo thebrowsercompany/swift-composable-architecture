@@ -1,4 +1,4 @@
-import Combine
+import OpenCombineShim
 @_spi(Internals) import ComposableArchitecture
 import XCTest
 
@@ -16,6 +16,7 @@ final class StoreTests: XCTestCase {
     XCTAssertEqual(store.effectCancellables.count, 0)
   }
 
+#if canImport(Combine)
   func testCancellableIsRemovedWhenEffectCompletes() {
     let mainQueue = DispatchQueue.test
     let effect = EffectTask<Void>(value: ())
@@ -44,6 +45,7 @@ final class StoreTests: XCTestCase {
 
     XCTAssertEqual(store.effectCancellables.count, 0)
   }
+#endif
 
   func testScopedStoreReceivesUpdatesFromParent() {
     let counterReducer = Reduce<Int, Void>({ state, _ in
@@ -511,6 +513,7 @@ final class StoreTests: XCTestCase {
     XCTAssertEqual(scopedStore.effectCancellables.count, 0)
   }
 
+#if !os(Windows)
   func testOverrideDependenciesDirectlyOnReducer() {
     struct Counter: ReducerProtocol {
       @Dependency(\.calendar) var calendar
@@ -539,4 +542,5 @@ final class StoreTests: XCTestCase {
 
     ViewStore(store).send(true)
   }
+#endif
 }

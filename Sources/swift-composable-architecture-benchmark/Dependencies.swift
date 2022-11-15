@@ -1,5 +1,5 @@
 import Benchmark
-import Combine
+import OpenCombineShim
 import ComposableArchitecture
 import Dependencies
 import Foundation
@@ -10,8 +10,9 @@ let dependenciesSuite = BenchmarkSuite(name: "Dependencies") { suite in
       .dependency(\.calendar, .autoupdatingCurrent)
       .dependency(\.date, .init { Date() })
       .dependency(\.locale, .autoupdatingCurrent)
-      .dependency(\.mainQueue, .immediate)
-      .dependency(\.mainRunLoop, .immediate)
+      // TODO: windows
+      // .dependency(\.mainQueue, .immediate)
+      // .dependency(\.mainRunLoop, .immediate)
       .dependency(\.timeZone, .autoupdatingCurrent)
       .dependency(\.uuid, .init { UUID() })
 

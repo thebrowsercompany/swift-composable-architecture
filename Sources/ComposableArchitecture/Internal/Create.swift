@@ -1,3 +1,5 @@
+import Foundation
+
 // https://github.com/CombineCommunity/CombineExt/blob/master/Sources/Operators/Create.swift
 
 // Copyright (c) 2020 Combine Community, and/or Shai Mishali
@@ -20,25 +22,26 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import Combine
-import Darwin
+import OpenCombineShim
+// import Darwin
 
 final class DemandBuffer<S: Subscriber>: @unchecked Sendable {
   private var buffer = [S.Input]()
   private let subscriber: S
   private var completion: Subscribers.Completion<S.Failure>?
   private var demandState = Demand()
-  private let lock: os_unfair_lock_t
+  private let lock: NSRecursiveLock
 
   init(subscriber: S) {
     self.subscriber = subscriber
-    self.lock = os_unfair_lock_t.allocate(capacity: 1)
-    self.lock.initialize(to: os_unfair_lock())
+    self.lock = NSRecursiveLock()
+    // self.lock = os_unfair_lock_t.allocate(capacity: 1)
+    // self.lock.initialize(to: os_unfair_lock())
   }
 
   deinit {
-    self.lock.deinitialize(count: 1)
-    self.lock.deallocate()
+    //self.lock.deinitialize(count: 1)
+    //self.lock.deallocate()
   }
 
   func buffer(value: S.Input) -> Subscribers.Demand {

@@ -1,7 +1,7 @@
 import Benchmark
-import Combine
 import ComposableArchitecture
 import Foundation
+import OpenCombineShim
 
 let effectSuite = BenchmarkSuite(name: "Effects") {
   $0.benchmark("Merged Effect.none (create, flat)") {

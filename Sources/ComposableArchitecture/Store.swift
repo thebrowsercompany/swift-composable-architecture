@@ -1,5 +1,5 @@
-import Combine
 import Foundation
+import OpenCombineShim
 
 /// A store represents the runtime that powers the application. It is the object that you will pass
 /// around to views that need to interact with the application.
@@ -555,7 +555,22 @@ public final class Store<State, Action> {
 /// ```swift
 /// let store: StoreOf<Feature>
 /// ```
+
 public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
+
+/// A convenience type alias for referring to a store of a given reducer's domain.
+///
+/// Instead of specifying two generics:
+///
+/// ```swift
+/// let store: Store<Feature.State, Feature.Action>
+/// ```
+///
+/// You can specify a single generic:
+///
+/// ```swift
+/// let store: StoreOf<Feature>
+/// ```
 
 #if swift(>=5.7)
   extension ReducerProtocol {

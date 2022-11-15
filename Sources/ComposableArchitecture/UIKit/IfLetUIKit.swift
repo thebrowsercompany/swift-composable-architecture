@@ -1,4 +1,4 @@
-import Combine
+import OpenCombineShim
 
 extension Store {
   /// Calls one of two closures depending on whether a store's optional state is `nil` or not, and
