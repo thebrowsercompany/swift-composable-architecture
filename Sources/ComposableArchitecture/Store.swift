@@ -148,19 +148,27 @@ public final class Store<State, Action> {
     initialState: @autoclosure () -> R.State,
     reducer: R,
     instrumentation: Instrumentation = .noop,
-    prepareDependencies: ((inout DependencyValues) -> Void)? = nil
+    prepareDependencies: ((inout DependencyValues) -> Void)? = nil,
+    file: StaticString = #file,
+    line: UInt = #line
   ) where R.State == State, R.Action == Action {
     if let prepareDependencies = prepareDependencies {
       self.init(
         initialState: withDependencies(prepareDependencies) { initialState() },
         reducer: reducer.transformDependency(\.self, transform: prepareDependencies),
-        mainThreadChecksEnabled: true
+        mainThreadChecksEnabled: true,
+        instrumentation: instrumentation,
+        file: file,
+        line: line
       )
     } else {
       self.init(
         initialState: initialState(),
         reducer: reducer,
-        mainThreadChecksEnabled: true
+        mainThreadChecksEnabled: true,
+        instrumentation: instrumentation,
+        file: file,
+        line: line
       )
     }
   }
@@ -336,6 +344,51 @@ public final class Store<State, Action> {
         )
     #endif
   }
+
+    public func memoized_scope<ChildState, ChildAction>(
+      state toChildState: @escaping (State) -> ChildState,
+      action fromChildAction: @escaping (ChildAction) -> Action,
+      removeDuplicates isDuplicate: ((ChildState, ChildState) -> Bool)? = nil,
+      file: StaticString = #file,
+      line: UInt = #line,
+      debugName: String? = nil
+    ) -> Store<ChildState, ChildAction> where State: MemoizableState{
+      self.threadCheck(status: .scope)
+
+      #if swift(>=5.7)
+        return self.reducer.memoized_rescope(
+          self,
+          state: toChildState,
+          action: fromChildAction,
+          removeDuplicates: isDuplicate,
+          instrumentation: instrumentation,
+          file: file,
+          line: line,
+          debugName: debugName
+        )
+      #else
+        return (self.scope ?? StoreScope(root: self))
+          .rescope(
+              self,
+              state: toChildState,
+              action: fromChildAction,
+              removeDuplicates: isDuplicate,
+              instrumentation: instrumentation,
+              file: file,
+              line: line
+          )
+      #endif
+    }
+
+    public func memoized_scope<ChildState>(
+      state toChildState: @escaping (State) -> ChildState,
+      removeDuplicates isDuplicate: ((ChildState, ChildState) -> Bool)? = nil,
+      file: StaticString = #file,
+      line: UInt = #line,
+      debugName: String? = nil
+    ) -> Store<ChildState, Action> where State: MemoizableState {
+        memoized_scope(state: toChildState, action: { $0 }, removeDuplicates: isDuplicate, file: file, line: line, debugName: debugName)
+    }
 
   /// Scopes the store to one that exposes child state.
   ///
@@ -580,7 +633,9 @@ public final class Store<State, Action> {
     initialState: R.State,
     reducer: R,
     mainThreadChecksEnabled: Bool,
-    instrumentation: Instrumentation = .noop
+    instrumentation: Instrumentation = .noop,
+    file: StaticString = #file,
+    line: UInt = #line
   ) where R.State == State, R.Action == Action {
     self.state = CurrentValueSubject(initialState)
     #if swift(>=5.7)
@@ -593,6 +648,7 @@ public final class Store<State, Action> {
     #endif
     self.instrumentation = instrumentation
     self.threadCheck(status: .`init`)
+    self.instrumentation.storeCreated?(self as AnyObject, file, line)
   }
 }
 
@@ -633,6 +689,29 @@ public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
             line: line
         )
     }
+
+      fileprivate func memoized_rescope<ChildState, ChildAction>(
+        _ store: Store<State, Action>,
+        state toChildState: @escaping (State) -> ChildState,
+        action fromChildAction: @escaping (ChildAction) -> Action,
+        removeDuplicates isDuplicate: ((ChildState, ChildState) -> Bool)? = nil,
+        instrumentation: Instrumentation,
+        file: StaticString = #file,
+        line: UInt = #line,
+        debugName: String? = nil
+      ) -> Store<ChildState, ChildAction> where State: MemoizableState {
+        (self as? any AnyScopedReducer ?? ScopedReducer(rootStore: store))
+          .memoized_rescope(
+              store,
+              state: toChildState,
+              action: fromChildAction,
+              removeDuplicates: isDuplicate,
+              instrumentation: instrumentation,
+              file: file,
+              line: line,
+              debugName: debugName
+          )
+      }
   }
 
   private final class ScopedReducer<
@@ -684,7 +763,7 @@ public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
   }
 
   protocol AnyScopedReducer {
-    func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
+      func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
       _ store: Store<ScopedState, ScopedAction>,
       state toRescopedState: @escaping (ScopedState) -> RescopedState,
       action fromRescopedAction: @escaping (RescopedAction) -> ScopedAction,
@@ -693,63 +772,143 @@ public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
       file: StaticString,
       line: UInt
     ) -> Store<RescopedState, RescopedAction>
-  }
 
-  extension ScopedReducer: AnyScopedReducer {
-    @inlinable
-    func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
+      func memoized_rescope<ScopedState: MemoizableState, ScopedAction, RescopedState, RescopedAction>(
       _ store: Store<ScopedState, ScopedAction>,
       state toRescopedState: @escaping (ScopedState) -> RescopedState,
       action fromRescopedAction: @escaping (RescopedAction) -> ScopedAction,
-      removeDuplicates isDuplicate: ((RescopedState, RescopedState) -> Bool)? = nil,
+      removeDuplicates isDuplicate: ((RescopedState, RescopedState) -> Bool)?,
       instrumentation: Instrumentation,
-      file: StaticString = #file,
-      line: UInt = #line
-    ) -> Store<RescopedState, RescopedAction> {
-      let fromScopedAction = self.fromScopedAction as! (ScopedAction) -> RootAction
-      let reducer = ScopedReducer<RootState, RootAction, RescopedState, RescopedAction>(
-        rootStore: self.rootStore,
-        state: { _ in toRescopedState(store.state.value) },
-        action: { fromScopedAction(fromRescopedAction($0)) },
-        parentStores: self.parentStores + [store]
-      )
-      let childStore = Store<RescopedState, RescopedAction>(
-        initialState: toRescopedState(store.state.value),
-        reducer: reducer,
-        instrumentation: instrumentation
-      )
-      childStore.parentCancellable = store.state
-        .dropFirst()
-        .sink { [weak childStore] newValue in
-          guard !reducer.isSending else { return }
-          let callbackInfo = Instrumentation.CallbackInfo<Store<RescopedState, RescopedAction>.Type, Any>(
-            storeKind: Store<RescopedState, RescopedAction>.self, action: nil, file: file, line: line
-          ).eraseToAny()
-
-          instrumentation.callback?(callbackInfo, .pre, .scopedStoreToLocal)
-          let newChildState = toRescopedState(newValue)
-          instrumentation.callback?(callbackInfo, .post, .scopedStoreToLocal)
-
-          guard let previousState = childStore?.state.value, let isDuplicate = isDuplicate else {
-            instrumentation.callback?(callbackInfo, .pre, .scopedStoreChangeState)
-            childStore?.state.value = newChildState
-            instrumentation.callback?(callbackInfo, .post, .scopedStoreChangeState)
-            return
-          }
-
-          instrumentation.callback?(callbackInfo, .pre, .scopedStoreDeduplicate)
-          let newStateIsDuplicate = isDuplicate(newChildState, previousState)
-          instrumentation.callback?(callbackInfo, .post, .scopedStoreDeduplicate)
-
-          if !newStateIsDuplicate {
-            instrumentation.callback?(callbackInfo, .pre, .scopedStoreChangeState)
-            childStore?.state.value = newChildState
-            instrumentation.callback?(callbackInfo, .post, .scopedStoreChangeState)
-          }
-        }
-      return childStore
-    }
+      file: StaticString,
+      line: UInt,
+      debugName: String?
+    ) -> Store<RescopedState, RescopedAction>
   }
+
+extension ScopedReducer: AnyScopedReducer {
+    @inlinable
+    func memoized_rescope<ScopedState: MemoizableState, ScopedAction, RescopedState, RescopedAction>(
+        _ store: Store<ScopedState, ScopedAction>,
+        state toRescopedState: @escaping (ScopedState) -> RescopedState,
+        action fromRescopedAction: @escaping (RescopedAction) -> ScopedAction,
+        removeDuplicates isDuplicate: ((RescopedState, RescopedState) -> Bool)? = nil,
+        instrumentation: Instrumentation,
+        file: StaticString = #file,
+        line: UInt = #line,
+        debugName: String?
+    ) -> Store<RescopedState, RescopedAction> {
+        let memoizerID = debugName ?? "\(file):\(line)"
+        var lastUpdated: Bool = false
+        let toRescopedState = { (state: ScopedState) in
+            let result = Memoizer.shared.memoized(state: state, scopeID: memoizerID, memoize: {
+                toRescopedState($0)
+            })
+            lastUpdated = result.updated
+            return result.value
+        }
+
+        let fromScopedAction = self.fromScopedAction as! (ScopedAction) -> RootAction
+        let reducer = ScopedReducer<RootState, RootAction, RescopedState, RescopedAction>(
+            rootStore: self.rootStore,
+            state: { _ in toRescopedState(store.state.value) },
+            action: { fromScopedAction(fromRescopedAction($0)) },
+            parentStores: self.parentStores + [store]
+        )
+        let childStore = Store<RescopedState, RescopedAction>(
+            initialState: toRescopedState(store.state.value),
+            reducer: reducer,
+            instrumentation: instrumentation
+        )
+        childStore.parentCancellable = store.state
+            .dropFirst()
+            .sink { [weak childStore] newValue in
+                guard !reducer.isSending else { return }
+                let callbackInfo = Instrumentation.CallbackInfo<Store<RescopedState, RescopedAction>.Type, Any>(
+                    storeKind: Store<RescopedState, RescopedAction>.self, action: nil, file: file, line: line
+                ).eraseToAny()
+
+                instrumentation.callback?(callbackInfo, .pre, .scopedStoreToLocal)
+                let newChildState = toRescopedState(newValue)
+                instrumentation.callback?(callbackInfo, .post, .scopedStoreToLocal)
+
+                if !lastUpdated {
+                    return
+                }
+
+                guard let previousState = childStore?.state.value, let isDuplicate = isDuplicate else {
+                    instrumentation.callback?(callbackInfo, .pre, .scopedStoreChangeState)
+                    childStore?.state.value = newChildState
+                    instrumentation.callback?(callbackInfo, .post, .scopedStoreChangeState)
+                    return
+                }
+
+                instrumentation.callback?(callbackInfo, .pre, .scopedStoreDeduplicate)
+                let newStateIsDuplicate = isDuplicate(newChildState, previousState)
+                instrumentation.callback?(callbackInfo, .post, .scopedStoreDeduplicate)
+
+                if !newStateIsDuplicate {
+                    instrumentation.callback?(callbackInfo, .pre, .scopedStoreChangeState)
+                    childStore?.state.value = newChildState
+                    instrumentation.callback?(callbackInfo, .post, .scopedStoreChangeState)
+                }
+            }
+        return childStore
+    }
+
+    @inlinable
+    func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
+        _ store: Store<ScopedState, ScopedAction>,
+        state toRescopedState: @escaping (ScopedState) -> RescopedState,
+        action fromRescopedAction: @escaping (RescopedAction) -> ScopedAction,
+        removeDuplicates isDuplicate: ((RescopedState, RescopedState) -> Bool)? = nil,
+        instrumentation: Instrumentation,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Store<RescopedState, RescopedAction> {
+        let fromScopedAction = self.fromScopedAction as! (ScopedAction) -> RootAction
+        let reducer = ScopedReducer<RootState, RootAction, RescopedState, RescopedAction>(
+            rootStore: self.rootStore,
+            state: { _ in toRescopedState(store.state.value) },
+            action: { fromScopedAction(fromRescopedAction($0)) },
+            parentStores: self.parentStores + [store]
+        )
+        let childStore = Store<RescopedState, RescopedAction>(
+            initialState: toRescopedState(store.state.value),
+            reducer: reducer,
+            instrumentation: instrumentation
+        )
+        childStore.parentCancellable = store.state
+            .dropFirst()
+            .sink { [weak childStore] newValue in
+                guard !reducer.isSending else { return }
+                let callbackInfo = Instrumentation.CallbackInfo<Store<RescopedState, RescopedAction>.Type, Any>(
+                    storeKind: Store<RescopedState, RescopedAction>.self, action: nil, file: file, line: line
+                ).eraseToAny()
+
+                instrumentation.callback?(callbackInfo, .pre, .scopedStoreToLocal)
+                let newChildState = toRescopedState(newValue)
+                instrumentation.callback?(callbackInfo, .post, .scopedStoreToLocal)
+
+                guard let previousState = childStore?.state.value, let isDuplicate = isDuplicate else {
+                    instrumentation.callback?(callbackInfo, .pre, .scopedStoreChangeState)
+                    childStore?.state.value = newChildState
+                    instrumentation.callback?(callbackInfo, .post, .scopedStoreChangeState)
+                    return
+                }
+
+                instrumentation.callback?(callbackInfo, .pre, .scopedStoreDeduplicate)
+                let newStateIsDuplicate = isDuplicate(newChildState, previousState)
+                instrumentation.callback?(callbackInfo, .post, .scopedStoreDeduplicate)
+
+                if !newStateIsDuplicate {
+                    instrumentation.callback?(callbackInfo, .pre, .scopedStoreChangeState)
+                    childStore?.state.value = newChildState
+                    instrumentation.callback?(callbackInfo, .post, .scopedStoreChangeState)
+                }
+            }
+        return childStore
+    }
+}
 #else
   private protocol AnyStoreScope {
     func rescope<ScopedState, ScopedAction, RescopedState, RescopedAction>(
