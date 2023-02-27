@@ -135,7 +135,7 @@ extension Publishers {
 }
 
 extension Publishers.Create {
-  fileprivate final class Subscription<Downstream: Subscriber>: Combine.Subscription
+  fileprivate final class Subscription<Downstream: Subscriber>: CombineSubscription
   where Downstream.Input == Output, Downstream.Failure == Failure {
     private let buffer: DemandBuffer<Downstream>
     private var cancellable: Cancellable?
