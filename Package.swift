@@ -107,7 +107,6 @@ func composableArchitectureTestsExcludes() -> [String] {
         "EffectDebounceTests.swift",
         "EffectDeferredTests.swift",
         "RuntimeWarningTests.swift", // no SwiftUI
-        "WithViewStoreTests.swift", // no SwiftUI
         "WithViewStoreAppTest.swift", // no SwiftUI
         "TestStoreTests.swift",
     ]
