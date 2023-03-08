@@ -42,7 +42,9 @@ let package = Package(
         .product(name: "Dependencies", package: "swift-dependencies"),
         .product(name: "IdentifiedCollections", package: "swift-identified-collections"),
         .product(name: "OrderedCollections", package: "swift-collections"),
-        .product(name: "_SwiftUINavigationState", package: "swiftui-navigation"),
+        .product(name: "_SwiftUINavigationState",
+          package: "swiftui-navigation", 
+          condition: .when(platforms: [.macOS, .iOS, .tvOS, .macCatalyst, .watchOS])),
         .product(name: "XCTestDynamicOverlay", package: "xctest-dynamic-overlay"),
       ],
       exclude: composableArchitectureExcludes()

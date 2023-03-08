@@ -372,9 +372,11 @@ extension EffectPublisher where Failure == Never {
   /// - Parameters:
   ///   - action: The action that is immediately emitted by the effect.
   ///   - animation: An animation.
+  #if canImport(SwiftUI)
   public static func send(_ action: Action, animation: Animation? = nil) -> Self {
     Self(value: action).animation(animation)
   }
+  #endif
 }
 
 /// A type that can send actions back into the system when used from
