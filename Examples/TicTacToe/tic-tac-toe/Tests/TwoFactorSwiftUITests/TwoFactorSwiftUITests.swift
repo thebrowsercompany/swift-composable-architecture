@@ -10,12 +10,13 @@ final class TwoFactorSwiftUITests: XCTestCase {
   func testFlow_Success() async {
     let store = TestStore(
       initialState: TwoFactor.State(token: "deadbeefdeadbeef"),
-      reducer: TwoFactor()
-    )
-    .scope(state: TwoFactorView.ViewState.init, action: TwoFactor.Action.init)
-
-    store.dependencies.authenticationClient.twoFactor = { _ in
-      AuthenticationResponse(token: "deadbeefdeadbeef", twoFactorRequired: false)
+      reducer: TwoFactor(),
+      observe: TwoFactorView.ViewState.init,
+      send: TwoFactor.Action.init
+    ) {
+      $0.authenticationClient.twoFactor = { _ in
+        AuthenticationResponse(token: "deadbeefdeadbeef", twoFactorRequired: false)
+      }
     }
 
     await store.send(.codeChanged("1")) {
@@ -50,12 +51,13 @@ final class TwoFactorSwiftUITests: XCTestCase {
   func testFlow_Failure() async {
     let store = TestStore(
       initialState: TwoFactor.State(token: "deadbeefdeadbeef"),
-      reducer: TwoFactor()
-    )
-    .scope(state: TwoFactorView.ViewState.init, action: TwoFactor.Action.init)
-
-    store.dependencies.authenticationClient.twoFactor = { _ in
-      throw AuthenticationError.invalidTwoFactor
+      reducer: TwoFactor(),
+      observe: TwoFactorView.ViewState.init,
+      send: TwoFactor.Action.init
+    ) {
+      $0.authenticationClient.twoFactor = { _ in
+        throw AuthenticationError.invalidTwoFactor
+      }
     }
 
     await store.send(.codeChanged("1234")) {
@@ -67,9 +69,9 @@ final class TwoFactorSwiftUITests: XCTestCase {
       $0.isFormDisabled = true
     }
     await store.receive(.twoFactorResponse(.failure(AuthenticationError.invalidTwoFactor))) {
-      $0.alert = AlertState(
-        title: TextState(AuthenticationError.invalidTwoFactor.localizedDescription)
-      )
+      $0.alert = AlertState {
+        TextState(AuthenticationError.invalidTwoFactor.localizedDescription)
+      }
       $0.isActivityIndicatorVisible = false
       $0.isFormDisabled = false
     }

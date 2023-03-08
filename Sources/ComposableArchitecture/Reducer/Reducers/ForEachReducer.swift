@@ -50,14 +50,16 @@ extension ReducerProtocol {
   ///     state.
   /// - Returns: A reducer that combines the child reducer with the parent reducer.
   @inlinable
-  public func forEach<ID: Hashable, Element: ReducerProtocol>(
-    _ toElementsState: WritableKeyPath<State, IdentifiedArray<ID, Element.State>>,
-    action toElementAction: CasePath<Action, (ID, Element.Action)>,
-    @ReducerBuilderOf<Element> _ element: () -> Element,
+  @warn_unqualified_access
+  public func forEach<ElementState, ElementAction, ID: Hashable, Element: ReducerProtocol>(
+    _ toElementsState: WritableKeyPath<State, IdentifiedArray<ID, ElementState>>,
+    action toElementAction: CasePath<Action, (ID, ElementAction)>,
+    @ReducerBuilder<ElementState, ElementAction> element: () -> Element,
     file: StaticString = #file,
     fileID: StaticString = #fileID,
     line: UInt = #line
-  ) -> _ForEachReducer<Self, ID, Element> {
+  ) -> _ForEachReducer<Self, ID, Element>
+  where ElementState == Element.State, ElementAction == Element.Action {
     _ForEachReducer(
       parent: self,
       toElementsState: toElementsState,

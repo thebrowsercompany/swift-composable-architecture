@@ -1,9 +1,9 @@
 import OpenCombineShim
 
-// @available(iOS, deprecated: 9999.0)
-// @available(macOS, deprecated: 9999.0)
-// @available(tvOS, deprecated: 9999.0)
-// @available(watchOS, deprecated: 9999.0)
+@available(iOS, deprecated: 9999.0)
+@available(macOS, deprecated: 9999.0)
+@available(tvOS, deprecated: 9999.0)
+@available(watchOS, deprecated: 9999.0)
 extension EffectPublisher: Publisher {
   public typealias Output = Action
 
@@ -23,8 +23,31 @@ extension EffectPublisher: Publisher {
       return .create { subscriber in
         let task = Task(priority: priority) { @MainActor in
           defer { subscriber.send(completion: .finished) }
-          let send = Send { action in
-            subscriber.send(action)
+          #if DEBUG
+            var isCompleted = false
+            defer { isCompleted = true }
+          #endif
+          let send = Send<Action> {
+            #if DEBUG
+              if isCompleted {
+                runtimeWarn(
+                  """
+                  An action was sent from a completed effect:
+
+                    Action:
+                      \(debugCaseOutput($0))
+
+                  Avoid sending actions using the 'send' argument from 'EffectTask.run' after \
+                  the effect has completed. This can happen if you escape the 'send' argument in \
+                  an unstructured context.
+
+                  To fix this, make sure that your 'run' closure does not return until you're \
+                  done calling 'send'.
+                  """
+                )
+              }
+            #endif
+            subscriber.send($0)
           }
           await operation(send)
         }
@@ -56,19 +79,23 @@ extension EffectPublisher {
   /// - Parameter publisher: A publisher.
   @available(
     iOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     macOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     tvOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     watchOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   public init<P: Publisher>(_ publisher: P) where P.Output == Output, P.Failure == Failure {
     self.operation = .publisher(publisher.eraseToAnyPublisher())
@@ -155,12 +182,13 @@ extension EffectPublisher {
   public static func future(
     _ attemptToFulfill: @escaping (@escaping (Result<Action, Failure>) -> Void) -> Void
   ) -> Self {
-    let dependencies = DependencyValues._current
-    return Deferred {
-      DependencyValues.$_current.withValue(dependencies) {
-        Future(attemptToFulfill)
-      }
-    }.eraseToEffect()
+    withEscapedDependencies { escaped in
+      Deferred {
+        escaped.yield {
+          Future(attemptToFulfill)
+        }
+      }.eraseToEffect()
+    }
   }
 
   /// Initializes an effect that lazily executes some work in the real world and synchronously sends
@@ -245,13 +273,14 @@ extension EffectPublisher {
   public static func run(
     _ work: @escaping (EffectPublisher.Subscriber) -> Cancellable
   ) -> Self {
-    let dependencies = DependencyValues._current
-    return AnyPublisher.create { subscriber in
-      DependencyValues.$_current.withValue(dependencies) {
-        work(subscriber)
+    withEscapedDependencies { escaped in
+      AnyPublisher.create { subscriber in
+        escaped.yield {
+          work(subscriber)
+        }
       }
+      .eraseToEffect()
     }
-    .eraseToEffect()
   }
 
   /// Creates an effect that executes some work in the real world that doesn't need to feed data
@@ -269,16 +298,17 @@ extension EffectPublisher {
     //     due to a bug in iOS 13.2 that publisher will never complete. The bug was fixed in
     //     iOS 13.3, but to remain compatible with iOS 13.2 and higher we need to do a little
     //     trickery to make sure the deferred publisher completes.
-    let dependencies = DependencyValues._current
-    return Deferred { () -> Publishers.CompactMap<Result<Action?, Failure>.Publisher, Action> in
-      DependencyValues.$_current.withValue(dependencies) {
-        try? work()
+    withEscapedDependencies { escaped in
+      Deferred { () -> Publishers.CompactMap<Result<Action?, Failure>.Publisher, Action> in
+        escaped.yield {
+          try? work()
+        }
+        return Just<Output?>(nil)
+          .setFailureType(to: Failure.self)
+          .compactMap { $0 }
       }
-      return Just<Output?>(nil)
-        .setFailureType(to: Failure.self)
-        .compactMap { $0 }
+      .eraseToEffect()
     }
-    .eraseToEffect()
   }
 }
 
@@ -341,19 +371,23 @@ extension Publisher {
   /// - Returns: An effect that wraps `self`.
   @available(
     iOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     macOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     tvOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     watchOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   public func eraseToEffect() -> EffectPublisher<Output, Failure> {
     EffectPublisher(self)
@@ -376,25 +410,37 @@ extension Publisher {
   /// - Returns: An effect that wraps `self` after mapping `Output` values.
   @available(
     iOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     macOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     tvOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     watchOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   public func eraseToEffect<T>(
     _ transform: @escaping (Output) -> T
   ) -> EffectPublisher<T, Failure> {
-    self.map(transform)
-      .eraseToEffect()
+    self.map(
+      withEscapedDependencies { escaped in
+        { action in
+          escaped.yield {
+            transform(action)
+          }
+        }
+      }
+    )
+    .eraseToEffect()
   }
 
   /// Turns any publisher into an ``EffectTask`` that cannot fail by wrapping its output and failure
@@ -413,19 +459,23 @@ extension Publisher {
   /// - Returns: An effect that wraps `self`.
   @available(
     iOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     macOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     tvOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     watchOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   public func catchToEffect() -> EffectTask<Result<Output, Failure>> {
     self.catchToEffect { $0 }
@@ -448,32 +498,38 @@ extension Publisher {
   /// - Returns: An effect that wraps `self`.
   @available(
     iOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     macOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     tvOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   @available(
     watchOS, deprecated: 9999.0,
-    message: "Iterate over 'Publisher.values' in an 'EffectTask.run', instead."
+    message:
+      "Iterate over 'Publisher.values' in an 'EffectTask.run', instead, or use 'EffectTask.publisher'."
   )
   public func catchToEffect<T>(
     _ transform: @escaping (Result<Output, Failure>) -> T
   ) -> EffectTask<T> {
-    let dependencies = DependencyValues._current
-    let transform = { action in
-      DependencyValues.$_current.withValue(dependencies) {
-        transform(action)
-      }
-    }
     return
       self
-      .map { transform(.success($0)) }
+      .map(
+        withEscapedDependencies { escaped in
+          { action in
+            escaped.yield {
+              transform(.success(action))
+            }
+          }
+        }
+      )
       .catch { Just(transform(.failure($0))) }
       .eraseToEffect()
   }
