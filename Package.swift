@@ -14,11 +14,7 @@ let package = Package(
     .library(
       name: "ComposableArchitecture",
       targets: ["ComposableArchitecture"]
-    ),
-    .library(
-      name: "Dependencies",
-      targets: ["Dependencies"]
-    ),
+    )
   ],
   dependencies: [
     // TODO: windows - this didn't build in VSCode initially
@@ -26,22 +22,26 @@ let package = Package(
     .package(url: "https://github.com/OpenCombine/OpenCombine.git", from: "0.13.0"),
     .package(url: "https://github.com/google/swift-benchmark", from: "0.1.0"),
     .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "0.8.0"),
-    .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.10.0"),
-    .package(url: "https://github.com/pointfreeco/swift-clocks", from: "0.1.4"),
-    .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.6.0"),
-    .package(url: "https://github.com/pointfreeco/swift-identified-collections", from: "0.4.1"),
+    .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.14.0"),
+    .package(url: "https://github.com/apple/swift-collections", from: "1.0.2"),
+    .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.9.1"),
+    .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "0.2.0"),
+    .package(url: "https://github.com/pointfreeco/swift-identified-collections", from: "0.7.0"),
+    .package(url: "https://github.com/pointfreeco/swiftui-navigation", from: "0.7.0"),
     .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", from: "0.5.0"),
   ],
   targets: [
     .target(
       name: "ComposableArchitecture",
       dependencies: [
-        "Dependencies",
         .product(name: "OpenCombineShim", package: "OpenCombine"),
         .product(name: "CasePaths", package: "swift-case-paths"),
         .product(name: "CombineSchedulers", package: "combine-schedulers"),
         .product(name: "CustomDump", package: "swift-custom-dump"),
+        .product(name: "Dependencies", package: "swift-dependencies"),
         .product(name: "IdentifiedCollections", package: "swift-identified-collections"),
+        .product(name: "OrderedCollections", package: "swift-collections"),
+        .product(name: "_SwiftUINavigationState", package: "swiftui-navigation"),
         .product(name: "XCTestDynamicOverlay", package: "xctest-dynamic-overlay"),
       ],
       exclude: composableArchitectureExcludes()
@@ -49,23 +49,8 @@ let package = Package(
     .testTarget(
       name: "ComposableArchitectureTests",
       dependencies: [
-        "ComposableArchitecture"
-      ],
-      exclude: composableArchitectureTestsExcludes()
-    ),
-    .target(
-      name: "Dependencies",
-      dependencies: [
-        .product(name: "Clocks", package: "swift-clocks"),
-        .product(name: "CombineSchedulers", package: "combine-schedulers"),
-        .product(name: "XCTestDynamicOverlay", package: "xctest-dynamic-overlay"),
-      ]
-    ),
-    .testTarget(
-      name: "DependenciesTests",
-      dependencies: [
+        "_CAsyncSupport",
         "ComposableArchitecture",
-        "Dependencies",
       ]
     ),
     .executableTarget(
@@ -75,6 +60,7 @@ let package = Package(
         .product(name: "Benchmark", package: "swift-benchmark"),
       ]
     ),
+    .systemLibrary(name: "_CAsyncSupport"),
   ]
 )
 

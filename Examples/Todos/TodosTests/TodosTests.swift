@@ -11,9 +11,9 @@ final class TodosTests: XCTestCase {
     let store = TestStore(
       initialState: Todos.State(),
       reducer: Todos()
-    )
-
-    store.dependencies.uuid = .incrementing
+    ) {
+      $0.uuid = .incrementing
+    }
 
     await store.send(.addTodoButtonTapped) {
       $0.todos.insert(
@@ -84,9 +84,9 @@ final class TodosTests: XCTestCase {
     let store = TestStore(
       initialState: state,
       reducer: Todos()
-    )
-
-    store.dependencies.continuousClock = self.clock
+    ) {
+      $0.continuousClock = self.clock
+    }
 
     await store.send(.todo(id: state.todos[0].id, action: .checkBoxToggled)) {
       $0.todos[id: state.todos[0].id]?.isComplete = true
@@ -119,9 +119,9 @@ final class TodosTests: XCTestCase {
     let store = TestStore(
       initialState: state,
       reducer: Todos()
-    )
-
-    store.dependencies.continuousClock = self.clock
+    ) {
+      $0.continuousClock = self.clock
+    }
 
     await store.send(.todo(id: state.todos[0].id, action: .checkBoxToggled)) {
       $0.todos[id: state.todos[0].id]?.isComplete = true
@@ -196,6 +196,41 @@ final class TodosTests: XCTestCase {
     }
   }
 
+  func testDeleteWhileFiltered() async {
+    let state = Todos.State(
+      filter: .completed,
+      todos: [
+        Todo.State(
+          description: "",
+          id: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!,
+          isComplete: false
+        ),
+        Todo.State(
+          description: "",
+          id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+          isComplete: false
+        ),
+        Todo.State(
+          description: "",
+          id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+          isComplete: true
+        ),
+      ]
+    )
+
+    let store = TestStore(
+      initialState: state,
+      reducer: Todos()
+    )
+
+    await store.send(.delete([0])) {
+      $0.todos = [
+        $0.todos[0],
+        $0.todos[1],
+      ]
+    }
+  }
+
   func testEditModeMoving() async {
     let state = Todos.State(
       todos: [
@@ -220,9 +255,9 @@ final class TodosTests: XCTestCase {
     let store = TestStore(
       initialState: state,
       reducer: Todos()
-    )
-
-    store.dependencies.continuousClock = self.clock
+    ) {
+      $0.continuousClock = self.clock
+    }
 
     await store.send(.editModeChanged(.active)) {
       $0.editMode = .active
@@ -267,10 +302,10 @@ final class TodosTests: XCTestCase {
     let store = TestStore(
       initialState: state,
       reducer: Todos()
-    )
-
-    store.dependencies.continuousClock = self.clock
-    store.dependencies.uuid = .incrementing
+    ) {
+      $0.continuousClock = self.clock
+      $0.uuid = .incrementing
+    }
 
     await store.send(.editModeChanged(.active)) {
       $0.editMode = .active

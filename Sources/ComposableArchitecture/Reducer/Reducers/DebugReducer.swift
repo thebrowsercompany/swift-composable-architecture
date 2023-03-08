@@ -7,6 +7,7 @@ extension ReducerProtocol {
   /// - Parameter printer: A printer for printing debug messages.
   /// - Returns: A reducer that prints debug messages for all received actions.
   @inlinable
+  @warn_unqualified_access
   public func _printChanges(
     _ printer: _ReducerPrinter<State, Action>? = .customDump
   ) -> _PrintChangesReducer<Self> {
@@ -31,8 +32,6 @@ public struct _ReducerPrinter<State, Action> {
 extension _ReducerPrinter {
   public static var customDump: Self {
     Self { receivedAction, oldState, newState in
-      @Dependency(\.context) var context
-      guard context != .preview else { return }
       var target = ""
       target.write("received action:\n")
       CustomDump.customDump(receivedAction, to: &target, indent: 2)
@@ -44,8 +43,6 @@ extension _ReducerPrinter {
 
   public static var actionLabels: Self {
     Self { receivedAction, _, _ in
-      @Dependency(\.context) var context
-      guard context != .preview else { return }
       print("received action: \(debugCaseOutput(receivedAction))")
     }
   }

@@ -46,14 +46,16 @@ extension ReducerProtocol {
   ///     present
   /// - Returns: A reducer that combines the child reducer with the parent reducer.
   @inlinable
-  public func ifCaseLet<Case: ReducerProtocol>(
-    _ toCaseState: CasePath<State, Case.State>,
-    action toCaseAction: CasePath<Action, Case.Action>,
-    @ReducerBuilderOf<Case> then case: () -> Case,
+  @warn_unqualified_access
+  public func ifCaseLet<CaseState, CaseAction, Case: ReducerProtocol>(
+    _ toCaseState: CasePath<State, CaseState>,
+    action toCaseAction: CasePath<Action, CaseAction>,
+    @ReducerBuilder<CaseState, CaseAction> then case: () -> Case,
     file: StaticString = #file,
     fileID: StaticString = #fileID,
     line: UInt = #line
-  ) -> _IfCaseLetReducer<Self, Case> {
+  ) -> _IfCaseLetReducer<Self, Case>
+  where CaseState == Case.State, CaseAction == Case.Action {
     .init(
       parent: self,
       child: `case`(),
@@ -154,6 +156,6 @@ public struct _IfCaseLetReducer<Parent: ReducerProtocol, Child: ReducerProtocol>
     }
     defer { state = self.toChildState.embed(childState) }
     return self.child.reduce(into: &childState, action: childAction)
-      .map(self.toChildAction.embed)
+      .map { self.toChildAction.embed($0) }
   }
 }

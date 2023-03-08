@@ -40,13 +40,15 @@ final class ComposableArchitectureTests: XCTestCase {
   //     }
   //   }
 
-  //   let store = TestStore(
-  //     initialState: 2,
-  //     reducer: Counter()
-  //   )
+  //  let mainQueue = DispatchQueue.test
+  //
+  //  let store = TestStore(
+  //    initialState: 2,
+  //    reducer: Counter()
+  //  ) {
+  //    $0.mainQueue = mainQueue.eraseToAnyScheduler()
+  //  }
 
-  //   let mainQueue = DispatchQueue.test
-  //   store.dependencies.mainQueue = mainQueue.eraseToAnyScheduler()
 
   //   await store.send(.incrAndSquareLater)
   //   await mainQueue.advance(by: 1)
@@ -78,85 +80,81 @@ final class ComposableArchitectureTests: XCTestCase {
   //   XCTAssertEqual(values, [1, 42, 1, 1, 42])
   // }
 
-  func testLongLivingEffects() async {
-    typealias Environment = (
-      startEffect: EffectTask<Void>,
-      stopEffect: EffectTask<Never>
-    )
+//  func testLongLivingEffects() async {
+//    enum Action { case end, incr, start }
+//
+//    let effect = AsyncStream<Void>.streamWithContinuation()
+//
+//    let reducer = Reduce<Int, Action> { state, action in
+//      switch action {
+//      case .end:
+//        return .fireAndForget {
+//          effect.continuation.finish()
+//        }
+//      case .incr:
+//        state += 1
+//        return .none
+//      case .start:
+//        return .run { send in
+//          for await _ in effect.stream {
+//            await send(.incr)
+//          }
+//        }
+//      }
+//    }
+//
+//    let store = TestStore(initialState: 0, reducer: reducer)
+//
+//    await store.send(.start)
+//    await store.send(.incr) { $0 = 1 }
+//    effect.continuation.yield()
+//    await store.receive(.incr) { $0 = 2 }
+//    await store.send(.end)
+//  }
 
-    enum Action { case end, incr, start }
-
-    let effect = AsyncStream<Void>.streamWithContinuation()
-
-    let reducer = Reduce<Int, Action> { state, action in
-      switch action {
-      case .end:
-        return .fireAndForget {
-          effect.continuation.finish()
-        }
-      case .incr:
-        state += 1
-        return .none
-      case .start:
-        return .run { send in
-          for await _ in effect.stream {
-            await send(.incr)
-          }
-        }
-      }
-    }
-
-    let store = TestStore(initialState: 0, reducer: reducer)
-
-    await store.send(.start)
-    await store.send(.incr) { $0 = 1 }
-    effect.continuation.yield()
-    await store.receive(.incr) { $0 = 2 }
-    await store.send(.end)
-  }
-
-  // func testCancellation() async {
-  //   let mainQueue = DispatchQueue.test
-
-  //   enum Action: Equatable {
-  //     case cancel
-  //     case incr
-  //     case response(Int)
-  //   }
-
-  //   let reducer = AnyReducer<Int, Action, Void> { state, action, _ in
-  //     enum CancelID {}
-
-  //     switch action {
-  //     case .cancel:
-  //       return .cancel(id: CancelID.self)
-
-  //     case .incr:
-  //       state += 1
-  //       return .task { [state] in
-  //         try await mainQueue.sleep(for: .seconds(1))
-  //         return .response(state * state)
-  //       }
-  //       .cancellable(id: CancelID.self)
-
-  //     case let .response(value):
-  //       state = value
-  //       return .none
-  //     }
-  //   }
-
-  //   let store = TestStore(
-  //     initialState: 0,
-  //     reducer: reducer,
-  //     environment: ()
-  //   )
-
-  //   await store.send(.incr) { $0 = 1 }
-  //   await mainQueue.advance(by: .seconds(1))
-  //   await store.receive(.response(1))
-
-  //   await store.send(.incr) { $0 = 2 }
-  //   await store.send(.cancel)
-  //   await store.finish()
-  // }
+//    func testCancellation() async {
+//      await _withMainSerialExecutor {
+//        let mainQueue = DispatchQueue.test
+//
+//        enum Action: Equatable {
+//          case cancel
+//          case incr
+//          case response(Int)
+//        }
+//
+//        let reducer = Reduce<Int, Action> { state, action in
+//          enum CancelID {}
+//
+//          switch action {
+//          case .cancel:
+//            return .cancel(id: CancelID.self)
+//
+//          case .incr:
+//            state += 1
+//            return .task { [state] in
+//              try await mainQueue.sleep(for: .seconds(1))
+//              return .response(state * state)
+//            }
+//            .cancellable(id: CancelID.self)
+//
+//          case let .response(value):
+//            state = value
+//            return .none
+//          }
+//        }
+//
+//        let store = TestStore(
+//          initialState: 0,
+//          reducer: reducer
+//        )
+//
+//        await store.send(.incr) { $0 = 1 }
+//        await mainQueue.advance(by: .seconds(1))
+//        await store.receive(.response(1))
+//
+//        await store.send(.incr) { $0 = 2 }
+//        await store.send(.cancel)
+//        await store.finish()
+//      }
+//    }
 }

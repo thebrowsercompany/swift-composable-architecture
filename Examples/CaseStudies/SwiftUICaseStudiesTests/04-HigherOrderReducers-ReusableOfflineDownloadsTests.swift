@@ -15,9 +15,9 @@ final class ReusableComponentsDownloadComponentTests: XCTestCase {
         url: URL(string: "https://www.pointfree.co")!
       ),
       reducer: DownloadComponent()
-    )
-
-    store.dependencies.downloadClient.download = { _ in self.download.stream }
+    ) {
+      $0.downloadClient.download = { _ in self.download.stream }
+    }
 
     await store.send(.buttonTapped) {
       $0.mode = .startingToDownload
@@ -43,9 +43,9 @@ final class ReusableComponentsDownloadComponentTests: XCTestCase {
         url: URL(string: "https://www.pointfree.co")!
       ),
       reducer: DownloadComponent()
-    )
-
-    store.dependencies.downloadClient.download = { _ in self.download.stream }
+    ) {
+      $0.downloadClient.download = { _ in self.download.stream }
+    }
 
     await store.send(.buttonTapped) {
       $0.mode = .startingToDownload
@@ -57,14 +57,16 @@ final class ReusableComponentsDownloadComponentTests: XCTestCase {
     }
 
     await store.send(.buttonTapped) {
-      $0.alert = AlertState(
-        title: TextState("Do you want to stop downloading this map?"),
-        primaryButton: .destructive(
-          TextState("Stop"),
-          action: .send(.stopButtonTapped, animation: .default)
-        ),
-        secondaryButton: .cancel(TextState("Nevermind"), action: .send(.nevermindButtonTapped))
-      )
+      $0.alert = AlertState {
+        TextState("Do you want to stop downloading this map?")
+      } actions: {
+        ButtonState(role: .destructive, action: .send(.stopButtonTapped, animation: .default)) {
+          TextState("Stop")
+        }
+        ButtonState(role: .cancel, action: .nevermindButtonTapped) {
+          TextState("Nevermind")
+        }
+      }
     }
 
     await store.send(.alert(.stopButtonTapped)) {
@@ -81,23 +83,25 @@ final class ReusableComponentsDownloadComponentTests: XCTestCase {
         url: URL(string: "https://www.pointfree.co")!
       ),
       reducer: DownloadComponent()
-    )
-
-    store.dependencies.downloadClient.download = { _ in self.download.stream }
+    ) {
+      $0.downloadClient.download = { _ in self.download.stream }
+    }
 
     let task = await store.send(.buttonTapped) {
       $0.mode = .startingToDownload
     }
 
     await store.send(.buttonTapped) {
-      $0.alert = AlertState(
-        title: TextState("Do you want to stop downloading this map?"),
-        primaryButton: .destructive(
-          TextState("Stop"),
-          action: .send(.stopButtonTapped, animation: .default)
-        ),
-        secondaryButton: .cancel(TextState("Nevermind"), action: .send(.nevermindButtonTapped))
-      )
+      $0.alert = AlertState {
+        TextState("Do you want to stop downloading this map?")
+      } actions: {
+        ButtonState(role: .destructive, action: .send(.stopButtonTapped, animation: .default)) {
+          TextState("Stop")
+        }
+        ButtonState(role: .cancel, action: .nevermindButtonTapped) {
+          TextState("Nevermind")
+        }
+      }
     }
 
     self.download.continuation.yield(.response(Data()))
@@ -118,19 +122,21 @@ final class ReusableComponentsDownloadComponentTests: XCTestCase {
         url: URL(string: "https://www.pointfree.co")!
       ),
       reducer: DownloadComponent()
-    )
-
-    store.dependencies.downloadClient.download = { _ in self.download.stream }
+    ) {
+      $0.downloadClient.download = { _ in self.download.stream }
+    }
 
     await store.send(.buttonTapped) {
-      $0.alert = AlertState(
-        title: TextState("Do you want to delete this map from your offline storage?"),
-        primaryButton: .destructive(
-          TextState("Delete"),
-          action: .send(.deleteButtonTapped, animation: .default)
-        ),
-        secondaryButton: .cancel(TextState("Nevermind"), action: .send(.nevermindButtonTapped))
-      )
+      $0.alert = AlertState {
+        TextState("Do you want to delete this map from your offline storage?")
+      } actions: {
+        ButtonState(role: .destructive, action: .send(.deleteButtonTapped, animation: .default)) {
+          TextState("Delete")
+        }
+        ButtonState(role: .cancel, action: .nevermindButtonTapped) {
+          TextState("Nevermind")
+        }
+      }
     }
 
     await store.send(.alert(.deleteButtonTapped)) {

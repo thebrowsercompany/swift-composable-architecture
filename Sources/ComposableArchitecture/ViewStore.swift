@@ -283,7 +283,9 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   public func send(_ action: ViewAction) -> ViewStoreTask {
     .init(rawValue: self._send(action))
   }
+
   #if canImport(SwiftUI)
+
     /// Sends an action to the store with a given animation.
     ///
     /// See ``ViewStore/send(_:)`` for more info.
@@ -293,9 +295,21 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
     ///   - animation: An animation.
     @discardableResult
     public func send(_ action: ViewAction, animation: Animation?) -> ViewStoreTask {
-      withAnimation(animation) {
-        self.send(action)
-      }
+      send(action, transaction: Transaction(animation: animation))
+    }
+
+    /// Sends an action to the store with a given transaction.
+    ///
+    /// See ``ViewStore/send(_:)`` for more info.
+    ///
+    /// - Parameters:
+    ///   - action: An action.
+    ///   - transaction: A transaction.
+    @discardableResult
+    public func send(_ action: ViewAction, transaction: Transaction) -> ViewStoreTask {
+        withTransaction(transaction) {
+            self.send(action)
+        }
     }
   #endif
 
@@ -369,7 +383,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   /// - Parameters:
   ///   - action: An action.
   ///   - predicate: A predicate on `ViewState` that determines for how long this method should
-  ///                suspend.
+  ///     suspend.
   @MainActor
   public func send(_ action: ViewAction, while predicate: @escaping (ViewState) -> Bool) async {
     let task = self.send(action)
@@ -379,7 +393,9 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       task.rawValue?.cancel()
     }
   }
+
   #if canImport(SwiftUI)
+
     /// Sends an action into the store and then suspends while a piece of state is `true`.
     ///
     /// See the documentation of ``send(_:while:)`` for more information.
@@ -388,19 +404,19 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
     ///   - action: An action.
     ///   - animation: The animation to perform when the action is sent.
     ///   - predicate: A predicate on `ViewState` that determines for how long this method should
-    ///                suspend.
+    ///     suspend.
     @MainActor
     public func send(
       _ action: ViewAction,
       animation: Animation?,
       while predicate: @escaping (ViewState) -> Bool
     ) async {
-      let task = withAnimation(animation) { self.send(action) }
-      await withTaskCancellationHandler {
-        await self.yield(while: predicate)
-      } onCancel: {
-        task.rawValue?.cancel()
-      }
+        let task = withAnimation(animation) { self.send(action) }
+        await withTaskCancellationHandler {
+            await self.yield(while: predicate)
+        } onCancel: {
+            task.rawValue?.cancel()
+        }
     }
   #endif
   /// Suspends the current task while a predicate on state is `true`.
@@ -409,7 +425,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   /// ``send(_:while:)``.
   ///
   /// - Parameter predicate: A predicate on `ViewState` that determines for how long this method
-  ///                        should suspend.
+  ///   should suspend.
   @MainActor
   public func yield(while predicate: @escaping (ViewState) -> Bool) async {
     if #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) {
@@ -439,8 +455,8 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       }
     }
   }
-  #if canImport(SwiftUI)
 
+  #if canImport(SwiftUI)
     /// Derives a binding from the store that prevents direct writes to state and instead sends
     /// actions to the store.
     ///
@@ -572,7 +588,11 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
     send action: HashableWrapper<(Value) -> ViewAction>
   ) -> Value {
     get { state.rawValue(self.state) }
-    set { self.send(action.rawValue(newValue)) }
+    set {
+      BindingLocal.$isActive.withValue(true) {
+        self.send(action.rawValue(newValue))
+      }
+    }
   }
 }
 
@@ -761,4 +781,8 @@ private struct HashableWrapper<Value>: Hashable {
   let rawValue: Value
   static func == (lhs: Self, rhs: Self) -> Bool { false }
   func hash(into hasher: inout Hasher) {}
+}
+
+enum BindingLocal {
+  @TaskLocal static var isActive = false
 }

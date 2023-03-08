@@ -7,13 +7,14 @@ import XCTest
 @MainActor
 final class AnimationTests: XCTestCase {
   func testRainbow() async {
+    let clock = TestClock()
+
     let store = TestStore(
       initialState: Animations.State(),
       reducer: Animations()
-    )
-
-    let clock = TestClock()
-    store.dependencies.continuousClock = clock
+    ) {
+      $0.continuousClock = clock
+    }
 
     await store.send(.rainbowButtonTapped)
     await store.receive(.setColor(.red)) {
@@ -59,13 +60,14 @@ final class AnimationTests: XCTestCase {
   }
 
   func testReset() async {
+    let clock = TestClock()
+
     let store = TestStore(
       initialState: Animations.State(),
       reducer: Animations()
-    )
-
-    let clock = TestClock()
-    store.dependencies.continuousClock = clock
+    ) {
+      $0.continuousClock = clock
+    }
 
     await store.send(.rainbowButtonTapped)
     await store.receive(.setColor(.red)) {
@@ -78,14 +80,19 @@ final class AnimationTests: XCTestCase {
     }
 
     await store.send(.resetButtonTapped) {
-      $0.alert = AlertState(
-        title: TextState("Reset state?"),
-        primaryButton: .destructive(
-          TextState("Reset"),
+      $0.alert = AlertState {
+        TextState("Reset state?")
+      } actions: {
+        ButtonState(
+          role: .destructive,
           action: .send(.resetConfirmationButtonTapped, animation: .default)
-        ),
-        secondaryButton: .cancel(TextState("Cancel"))
-      )
+        ) {
+          TextState("Reset")
+        }
+        ButtonState(role: .cancel) {
+          TextState("Cancel")
+        }
+      }
     }
 
     await store.send(.resetConfirmationButtonTapped) {
