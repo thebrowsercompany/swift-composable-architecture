@@ -46,4 +46,72 @@ extension StoreTests {
         _ = childStore.send(.noop)
         _ = leafStore.send(.noop)
       }
+
+    func testSyncActions() {
+        if #available(macOS 12.0, *) {
+            struct State: Equatable {
+                var name: String
+            }
+
+            enum Action: Equatable {
+                case setup
+                case teardown
+                case updateFromView(String)
+                case subscription(String)
+            }
+
+            struct TestClient {
+                var sendUpdate: (String) -> Void
+                var updates: () -> AsyncStream<String>
+            }
+
+            let passthroughSubject = PassthroughSubject<String, Never>()
+            let client = TestClient(
+                sendUpdate: {
+                    passthroughSubject.send($0)
+                },
+                updates: {
+                    passthroughSubject.values.eraseToStream()
+                }
+            )
+
+            enum CancellationToken: Hashable {}
+
+            let store = Store<State, Action>(
+                initialState: .init(name: "BCNY"),
+                reducer: Reduce { state, action in
+                    switch action {
+                    case .setup:
+                        return .run { send in
+                            for await update in client.updates() {
+                                await send(.subscription(update))
+                            }
+                        }
+                        .cancellable(id: CancellationToken.self, cancelInFlight: true)
+                    case let .subscription(value):
+                        state.name = value
+                        return .none
+                    case let .updateFromView(update):
+                        return .fireAndForget {
+                            client.sendUpdate(update)
+                        }
+                    case .teardown:
+                        return .cancel(id: CancellationToken.self)
+                    }
+                }
+            )
+
+            let expectation = XCTestExpectation(description: "Run update after subscription has started")
+
+            let viewStore = ViewStore(store)
+            viewStore.send(.setup)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                viewStore.send(.updateFromView("BCNY_2"))
+                XCTAssertEqual(viewStore.state.name, "BCNY_2")
+                expectation.fulfill()
+                viewStore.send(.teardown)
+            }
+            wait(for: [expectation], timeout: 5)
+        }
+    }
 }
