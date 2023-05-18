@@ -56,7 +56,7 @@ import SwiftUI
 /// }
 /// ```
 ///
-/// Enhance its core reducer using ``ReducerProtocol/forEach(_:action:element:file:fileID:line:)``:
+/// Enhance its core reducer using ``ReducerProtocol/forEach(_:action:element:fileID:line:)``:
 ///
 /// ```swift
 /// var body: some ReducerProtocol<State, Action> {
@@ -73,7 +73,7 @@ import SwiftUI
 ///
 /// ```swift
 /// ForEachStore(
-///   self.store.scope(state: \.todos, AppAction.todo(id:action:))
+///   self.store.scope(state: \.todos, action: AppAction.todo(id:action:))
 /// ) { todoStore in
 ///   TodoView(store: todoStore)
 /// }
@@ -134,6 +134,7 @@ public struct ForEachStore<
 private func areOrderedSetsDuplicates<ID: Hashable>(lhs: OrderedSet<ID>, rhs: OrderedSet<ID>)
   -> Bool
 {
+  guard lhs.count == rhs.count else { return false }
   var lhs = lhs
   var rhs = rhs
   if memcmp(&lhs, &rhs, MemoryLayout<OrderedSet<ID>>.size) == 0 {

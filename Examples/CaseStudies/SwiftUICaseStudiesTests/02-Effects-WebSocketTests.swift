@@ -6,13 +6,12 @@ import XCTest
 @MainActor
 final class WebSocketTests: XCTestCase {
   func testWebSocketHappyPath() async {
-    let actions = AsyncStream<WebSocketClient.Action>.streamWithContinuation()
-    let messages = AsyncStream<TaskResult<WebSocketClient.Message>>.streamWithContinuation()
+    let actions = AsyncStream.makeStream(of: WebSocketClient.Action.self)
+    let messages = AsyncStream.makeStream(of: TaskResult<WebSocketClient.Message>.self)
 
-    let store = TestStore(
-      initialState: WebSocket.State(),
-      reducer: WebSocket()
-    ) {
+    let store = TestStore(initialState: WebSocket.State()) {
+      WebSocket()
+    } withDependencies: {
       $0.continuousClock = ImmediateClock()
       $0.webSocket.open = { _, _, _ in actions.stream }
       $0.webSocket.receive = { _ in messages.stream }
@@ -58,13 +57,12 @@ final class WebSocketTests: XCTestCase {
   }
 
   func testWebSocketSendFailure() async {
-    let actions = AsyncStream<WebSocketClient.Action>.streamWithContinuation()
-    let messages = AsyncStream<TaskResult<WebSocketClient.Message>>.streamWithContinuation()
+    let actions = AsyncStream.makeStream(of: WebSocketClient.Action.self)
+    let messages = AsyncStream.makeStream(of: TaskResult<WebSocketClient.Message>.self)
 
-    let store = TestStore(
-      initialState: WebSocket.State(),
-      reducer: WebSocket()
-    ) {
+    let store = TestStore(initialState: WebSocket.State()) {
+      WebSocket()
+    } withDependencies: {
       $0.continuousClock = ImmediateClock()
       $0.webSocket.open = { _, _, _ in actions.stream }
       $0.webSocket.receive = { _ in messages.stream }
@@ -105,14 +103,13 @@ final class WebSocketTests: XCTestCase {
   }
 
   func testWebSocketPings() async {
-    let actions = AsyncStream<WebSocketClient.Action>.streamWithContinuation()
+    let actions = AsyncStream.makeStream(of: WebSocketClient.Action.self)
     let clock = TestClock()
     var pingsCount = 0
 
-    let store = TestStore(
-      initialState: WebSocket.State(),
-      reducer: WebSocket()
-    ) {
+    let store = TestStore(initialState: WebSocket.State()) {
+      WebSocket()
+    } withDependencies: {
       $0.continuousClock = clock
       $0.webSocket.open = { _, _, _ in actions.stream }
       $0.webSocket.receive = { _ in try await Task.never() }
@@ -140,12 +137,11 @@ final class WebSocketTests: XCTestCase {
   }
 
   func testWebSocketConnectError() async {
-    let actions = AsyncStream<WebSocketClient.Action>.streamWithContinuation()
+    let actions = AsyncStream.makeStream(of: WebSocketClient.Action.self)
 
-    let store = TestStore(
-      initialState: WebSocket.State(),
-      reducer: WebSocket()
-    ) {
+    let store = TestStore(initialState: WebSocket.State()) {
+      WebSocket()
+    } withDependencies: {
       $0.continuousClock = ImmediateClock()
       $0.webSocket.open = { _, _, _ in actions.stream }
       $0.webSocket.receive = { _ in try await Task.never() }

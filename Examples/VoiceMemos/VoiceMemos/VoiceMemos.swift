@@ -39,15 +39,15 @@ struct VoiceMemos: ReducerProtocol {
         return .none
 
       case .openSettingsButtonTapped:
-        return .fireAndForget {
+        return .run { _ in
           await self.openSettings()
         }
 
       case .recordButtonTapped:
         switch state.audioRecorderPermission {
         case .undetermined:
-          return .task {
-            await .recordPermissionResponse(self.requestRecordPermission())
+          return .run { send in
+            await send(.recordPermissionResponse(self.requestRecordPermission()))
           }
 
         case .denied:
@@ -165,7 +165,7 @@ struct VoiceMemosView: View {
           .background(Color.init(white: 0.95))
         }
         .alert(
-          self.store.scope(state: \.alert),
+          self.store.scope(state: \.alert, action: { $0 }),
           dismiss: .alertDismissed
         )
         .navigationTitle("Voice memos")
@@ -229,9 +229,10 @@ struct VoiceMemos_Previews: PreviewProvider {
               url: URL(string: "https://www.pointfree.co/untitled")!
             ),
           ]
-        ),
-        reducer: VoiceMemos()
-      )
+        )
+      ) {
+        VoiceMemos()
+      }
     )
   }
 }

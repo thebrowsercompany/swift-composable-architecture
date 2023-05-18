@@ -25,7 +25,9 @@ final class InstrumentationTests: XCTestCase {
       }
     })
 
-    let store = Store(initialState: 0, reducer: EmptyReducer<Int, Void>(), instrumentation: inst)
+    let store = Store(initialState: 0, instrumentation: inst) {
+        EmptyReducer<Int, Void>()
+    }
     _ = store.send(())
 
     XCTAssertEqual(2, sendCalls)
@@ -60,7 +62,9 @@ final class InstrumentationTests: XCTestCase {
       }
     })
 
-    let store = Store(initialState: 0, reducer: EmptyReducer<Int, Void>(), instrumentation: inst)
+    let store = Store(initialState: 0, instrumentation: inst) {
+       EmptyReducer<Int, Void>()
+    }
     let viewStore = ViewStore(store)
 
     viewStore.send(())
@@ -100,7 +104,9 @@ final class InstrumentationTests: XCTestCase {
       }
     })
 
-    let store = Store(initialState: (), reducer: AnyReducer<(), Void, Void>.empty, environment: (), instrumentation: inst)
+    let store = Store<Void, Void>(initialState: (), instrumentation: inst) {
+      EmptyReducer()
+    }
     let viewStore = ViewStore(store)
 
     viewStore.send(())
@@ -140,15 +146,13 @@ final class InstrumentationTests: XCTestCase {
     })
 
     var reducerCount = 0
-    let store = Store<Int, Void>(
-        initialState: 0,
-        reducer: Reduce(internal: { state, action in
-            guard reducerCount == 0 else { return .none }
-            reducerCount += 1
-            return .init(value: ())
-        }),
-        instrumentation: inst
-    )
+    let store = Store<Int, Void>(initialState: 0, instrumentation: inst) {
+      Reduce(internal: { state, action in
+          guard reducerCount == 0 else { return .none }
+          reducerCount += 1
+          return .init(value: ())
+      })
+    }
     let viewStore = ViewStore(store)
 
     viewStore.send(())
@@ -190,15 +194,13 @@ final class InstrumentationTests: XCTestCase {
     })
 
     var reducerCount = 0
-    let store = Store<Int, Void>(
-        initialState: 0,
-        reducer: Reduce(internal: { _, _ in
-            guard reducerCount == 0 else { return .none }
-            reducerCount += 1
-            return .init(value: ())
-        }),
-        instrumentation: inst
-    )
+    let store = Store<Int, Void>(initialState: 0, instrumentation: inst) {
+      Reduce(internal: { _, _ in
+          guard reducerCount == 0 else { return .none }
+          reducerCount += 1
+          return .init(value: ())
+      })
+    }
     let viewStore = ViewStore(store)
     viewStore.publisher
       .sink { [unowned viewStore] _ in
@@ -256,16 +258,14 @@ final class InstrumentationTests: XCTestCase {
       }
     })
 
-    let parentStore = Store<Int, Void>(
-        initialState: 0,
-        reducer: Reduce(internal: { state, _ in
-            state += 1
-            return .none
-        }),
-        instrumentation: inst
-    )
+    let parentStore = Store<Int, Void>(initialState: 0, instrumentation: inst) {
+      Reduce<Int, Void>(internal: { state, _ in
+          state += 1
+          return .none
+      })
+    }
     let parentViewStore = ViewStore(parentStore)
-    let childStore = parentStore.scope(state: String.init)
+    let childStore = parentStore.scope(state: String.init, action: { $0 })
 
     var values: [String] = []
     childStore.state
@@ -321,14 +321,12 @@ final class InstrumentationTests: XCTestCase {
       }
     })
 
-    let parentStore = Store<Int, Void>(
-        initialState: 0,
-        reducer: Reduce(internal: { state, _ in
-            state += 1
-            return .none
-        }),
-        instrumentation: inst
-    )
+    let parentStore = Store<Int, Void>(initialState: 0, instrumentation: inst) {
+      Reduce(internal: { state, _ in
+        state += 1
+        return .none
+      })
+    }
     let parentViewStore = ViewStore(parentStore)
     let childStore = parentStore.scope(
       state: String.init,
@@ -363,11 +361,9 @@ final class InstrumentationTests: XCTestCase {
       viewStoreCreated = viewStore
     })
 
-    let parentStore = Store<Int, Void>(
-        initialState: 0,
-        reducer: EmptyReducer(),
-        instrumentation: inst
-    )
+    let parentStore = Store<Int, Void>(initialState: 0, instrumentation: inst) {
+      EmptyReducer()
+    }
     let parentViewStore = ViewStore(parentStore)
 
     XCTAssertIdentical(viewStoreCreated, parentViewStore)
@@ -380,11 +376,9 @@ final class InstrumentationTests: XCTestCase {
         storeCreated = store
     })
 
-    let parentStore = Store<Int, Void>(
-        initialState: 0,
-        reducer: EmptyReducer(),
-        instrumentation: inst
-    )
+    let parentStore = Store<Int, Void>(initialState: 0, instrumentation: inst) {
+      EmptyReducer()
+    }
 
     XCTAssertIdentical(storeCreated, parentStore)
   }

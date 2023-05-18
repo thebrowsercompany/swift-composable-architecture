@@ -5,11 +5,11 @@
   @testable import ComposableArchitecture
 
   @MainActor
-  final class StoreFilterTests: XCTestCase {
+  final class StoreFilterTests: BaseTCATestCase {
     var cancellables: Set<AnyCancellable> = []
 
     func testFilter() {
-      let store = Store<Int?, Void>(initialState: nil, reducer: EmptyReducer())
+      let store = Store<Int?, Void>(initialState: nil) {}
         .filter { state, _ in state != nil }
 
       let viewStore = ViewStore(store)

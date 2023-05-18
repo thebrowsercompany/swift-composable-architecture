@@ -143,7 +143,7 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
   ///
   /// - Parameter prefix: A string with which to prefix all debug messages.
   /// - Returns: A structure that prints debug messages for all computations.
-  public func debug(_ prefix: String = "") -> Self {
+  public func _printChanges(_ prefix: String = "") -> Self {
     var view = self
     #if DEBUG
       view.prefix = prefix
@@ -163,13 +163,6 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
               ?? "(No difference in state detected)"
           }
           ?? "(Initial state)\n\(stateDump)"
-        func typeName(_ type: Any.Type) -> String {
-          var name = String(reflecting: type)
-          if let index = name.firstIndex(of: ".") {
-            name.removeSubrange(...index)
-          }
-          return name
-        }
         print(
           """
           \(prefix.isEmpty ? "" : "\(prefix): ")\
@@ -346,7 +339,7 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
     line: UInt = #line
   ) {
     self.init(
-      store: store.scope(state: toViewState),
+      store: store.scope(state: toViewState, action: { $0 }),
       removeDuplicates: isDuplicate,
       content: content,
       file: file,
@@ -598,7 +591,7 @@ extension WithViewStore where ViewState: Equatable, Content: View {
     line: UInt = #line
   ) {
     self.init(
-      store: store.scope(state: toViewState),
+      store: store.scope(state: toViewState, action: { $0 }),
       removeDuplicates: ==,
       content: content,
       file: file,

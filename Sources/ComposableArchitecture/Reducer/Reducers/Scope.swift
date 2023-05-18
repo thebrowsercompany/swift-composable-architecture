@@ -58,7 +58,7 @@
 /// ## Enum state
 ///
 /// The ``Scope`` reducer also works when state is modeled as an enum, not just a struct. In that
-/// case you can use ``init(state:action:child:file:fileID:line:)`` to specify a case path that
+/// case you can use ``init(state:action:child:fileID:line:)`` to specify a case path that
 /// identifies the case of state you want to scope to.
 ///
 /// For example, if your state was modeled as an enum for unloaded/loading/loaded, you could
@@ -94,13 +94,12 @@
 /// bugs, and so we show a runtime warning in that case, and cause test failures.
 ///
 /// For an alternative to using ``Scope`` with state case paths that enforces the order, check out
-/// the ``ifCaseLet(_:action:then:file:fileID:line:)`` operator.
+/// the ``ifCaseLet(_:action:then:fileID:line:)`` operator.
 public struct Scope<ParentState, ParentAction, Child: ReducerProtocol>: ReducerProtocol {
   @usableFromInline
   enum StatePath {
     case casePath(
       CasePath<ParentState, Child.State>,
-      file: StaticString,
       fileID: StaticString,
       line: UInt
     )
@@ -200,7 +199,7 @@ public struct Scope<ParentState, ParentAction, Child: ReducerProtocol>: ReducerP
   /// > ```
   /// >
   /// > If the parent domain contains additional logic for switching between cases of child state,
-  /// > prefer ``ReducerProtocol/ifCaseLet(_:action:then:file:fileID:line:)``, which better ensures
+  /// > prefer ``ReducerProtocol/ifCaseLet(_:action:then:fileID:line:)``, which better ensures
   /// > that child logic runs _before_ any parent logic can replace child state:
   /// >
   /// > ```swift
@@ -211,7 +210,7 @@ public struct Scope<ParentState, ParentAction, Child: ReducerProtocol>: ReducerP
   /// >   // ...
   /// >   }
   /// > }
-  /// > .ifCaseLet(state: /State.loggedIn, action: /Action.loggedIn) {
+  /// > .ifCaseLet(/State.loggedIn, action: /Action.loggedIn) {
   /// >   LoggedIn()  // ✅ Receives actions before its case can change
   /// > }
   /// > ```
@@ -225,12 +224,11 @@ public struct Scope<ParentState, ParentAction, Child: ReducerProtocol>: ReducerP
     state toChildState: CasePath<ParentState, ChildState>,
     action toChildAction: CasePath<ParentAction, ChildAction>,
     @ReducerBuilder<ChildState, ChildAction> child: () -> Child,
-    file: StaticString = #file,
     fileID: StaticString = #fileID,
     line: UInt = #line
   ) where ChildState == Child.State, ChildAction == Child.Action {
     self.init(
-      toChildState: .casePath(toChildState, file: file, fileID: fileID, line: line),
+      toChildState: .casePath(toChildState, fileID: fileID, line: line),
       toChildAction: toChildAction,
       child: child()
     )
@@ -243,7 +241,7 @@ public struct Scope<ParentState, ParentAction, Child: ReducerProtocol>: ReducerP
     guard let childAction = self.toChildAction.extract(from: action)
     else { return .none }
     switch self.toChildState {
-    case let .casePath(toChildState, file, fileID, line):
+    case let .casePath(toChildState, fileID, line):
       guard var childState = toChildState.extract(from: state) else {
         runtimeWarn(
           """
@@ -272,9 +270,7 @@ public struct Scope<ParentState, ParentAction, Child: ReducerProtocol>: ReducerP
           • This action was sent to the store while state was another case. Make sure that actions \
           for this reducer can only be sent from a view store when state is set to the appropriate \
           case. In SwiftUI applications, use "SwitchStore".
-          """,
-          file: file,
-          line: line
+          """
         )
         return .none
       }

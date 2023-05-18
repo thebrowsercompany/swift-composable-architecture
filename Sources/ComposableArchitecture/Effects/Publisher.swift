@@ -8,7 +8,16 @@ extension EffectPublisher where Failure == Never {
   public static func publisher<P: Publisher>(_ createPublisher: @escaping () -> P) -> Self
   where P.Output == Action, P.Failure == Never {
     Self(
-      operation: .publisher(Deferred(createPublisher: createPublisher).eraseToAnyPublisher())
+      operation: .publisher(
+        withEscapedDependencies { continuation in
+          Deferred {
+            continuation.yield {
+              createPublisher()
+            }
+          }
+        }
+        .eraseToAnyPublisher()
+      )
     )
   }
 }
@@ -37,12 +46,12 @@ extension EffectPublisher: Publisher {
         let task = Task(priority: priority) { @MainActor in
           defer { subscriber.send(completion: .finished) }
           #if DEBUG
-            var isCompleted = false
-            defer { isCompleted = true }
+            let isCompleted = LockIsolated(false)
+            defer { isCompleted.setValue(true) }
           #endif
           let send = Send<Action> {
             #if DEBUG
-              if isCompleted {
+              if isCompleted.value {
                 runtimeWarn(
                   """
                   An action was sent from a completed effect:
@@ -77,7 +86,7 @@ extension EffectPublisher {
   ///
   /// > Important: This Combine interface has been soft-deprecated in favor of Swift concurrency.
   /// > Prefer performing asynchronous work directly in
-  /// > ``EffectPublisher/run(priority:operation:catch:file:fileID:line:)`` by adopting a
+  /// > ``EffectPublisher/run(priority:operation:catch:fileID:line:)`` by adopting a
   /// > non-Combine interface, or by iterating over the publisher's asynchronous sequence of
   /// > `values`:
   /// >
@@ -565,23 +574,19 @@ extension Publisher {
   /// - Returns: An effect that never produces output or errors.
   @available(
     iOS, deprecated: 9999.0,
-    message:
-      "Iterate over 'Publisher.values' in the static version of 'Effect.fireAndForget', instead."
+    message: "Iterate over 'Publisher.values' in the static version of 'Effect.run', instead."
   )
   @available(
     macOS, deprecated: 9999.0,
-    message:
-      "Iterate over 'Publisher.values' in the static version of 'Effect.fireAndForget', instead."
+    message: "Iterate over 'Publisher.values' in the static version of 'Effect.run', instead."
   )
   @available(
     tvOS, deprecated: 9999.0,
-    message:
-      "Iterate over 'Publisher.values' in the static version of 'Effect.fireAndForget', instead."
+    message: "Iterate over 'Publisher.values' in the static version of 'Effect.run', instead."
   )
   @available(
     watchOS, deprecated: 9999.0,
-    message:
-      "Iterate over 'Publisher.values' in the static version of 'Effect.fireAndForget', instead."
+    message: "Iterate over 'Publisher.values' in the static version of 'Effect.run', instead."
   )
   public func fireAndForget<NewOutput, NewFailure>(
     outputType: NewOutput.Type = NewOutput.self,

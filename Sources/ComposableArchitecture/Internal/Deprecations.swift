@@ -3,6 +3,316 @@ import Combine
 import SwiftUI
 import XCTestDynamicOverlay
 
+// MARK: - Deprecated after 0.52.0
+
+extension WithViewStore {
+  @available(*, deprecated, renamed: "_printChanges(_:)")
+  public func debug(_ prefix: String = "") -> Self {
+    self._printChanges(prefix)
+  }
+}
+
+extension EffectPublisher where Failure == Never {
+  @available(iOS, deprecated: 9999, message: "Use 'Effect.run' and pass the action to 'send'.")
+  @available(macOS, deprecated: 9999, message: "Use 'Effect.run' and pass the action to 'send'.")
+  @available(tvOS, deprecated: 9999, message: "Use 'Effect.run' and pass the action to 'send'.")
+  @available(watchOS, deprecated: 9999, message: "Use 'Effect.run' and pass the action to 'send'.")
+  public static func task(
+    priority: TaskPriority? = nil,
+    operation: @escaping @Sendable () async throws -> Action,
+    catch handler: (@Sendable (Error) async -> Action)? = nil,
+    fileID: StaticString = #fileID,
+    line: UInt = #line
+  ) -> Self {
+    withEscapedDependencies { escaped in
+      Self(
+        operation: .run(priority) { send in
+          await escaped.yield {
+            do {
+              try await send(operation())
+            } catch is CancellationError {
+              return
+            } catch {
+              guard let handler = handler else {
+                #if DEBUG
+                  var errorDump = ""
+                  customDump(error, to: &errorDump, indent: 4)
+                  runtimeWarn(
+                    """
+                    An "EffectTask.task" returned from "\(fileID):\(line)" threw an unhandled \
+                    error. …
+
+                    \(errorDump)
+
+                    All non-cancellation errors must be explicitly handled via the "catch" \
+                    parameter on "EffectTask.task", or via a "do" block.
+                    """
+                  )
+                #endif
+                return
+              }
+              await send(handler(error))
+            }
+          }
+        }
+      )
+    }
+  }
+
+  @available(iOS, deprecated: 9999, message: "Use 'Effect.run' and ignore 'send' instead.")
+  @available(macOS, deprecated: 9999, message: "Use 'Effect.run' and ignore 'send' instead.")
+  @available(tvOS, deprecated: 9999, message: "Use 'Effect.run' and ignore 'send' instead.")
+  @available(watchOS, deprecated: 9999, message: "Use 'Effect.run' and ignore 'send' instead.")
+  public static func fireAndForget(
+    priority: TaskPriority? = nil,
+    _ work: @escaping @Sendable () async throws -> Void
+  ) -> Self {
+    Self.run(priority: priority) { _ in try? await work() }
+  }
+}
+
+extension Store {
+  @available(iOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(macOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(tvOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(watchOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  public convenience init<R: ReducerProtocol>(
+    initialState: @autoclosure () -> R.State,
+    reducer: R,
+    prepareDependencies: ((inout DependencyValues) -> Void)? = nil
+  ) where R.State == State, R.Action == Action {
+    if let prepareDependencies = prepareDependencies {
+      self.init(
+        initialState: withDependencies(prepareDependencies) { initialState() },
+        reducer: reducer.transformDependency(\.self, transform: prepareDependencies),
+        mainThreadChecksEnabled: true
+      )
+    } else {
+      self.init(
+        initialState: initialState(),
+        reducer: reducer,
+        mainThreadChecksEnabled: true
+      )
+    }
+  }
+}
+
+extension TestStore {
+  @available(iOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(macOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(tvOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(watchOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  public convenience init<R: ReducerProtocol>(
+    initialState: @autoclosure () -> State,
+    reducer: R,
+    prepareDependencies: (inout DependencyValues) -> Void = { _ in },
+    file: StaticString = #file,
+    line: UInt = #line
+  )
+  where
+    R.State == State,
+    R.Action == Action,
+    State == ScopedState,
+    State: Equatable,
+    Action == ScopedAction,
+    Environment == Void
+  {
+    self.init(
+      initialState: initialState(),
+      reducer: reducer,
+      observe: { $0 },
+      send: { $0 },
+      prepareDependencies: prepareDependencies,
+      file: file,
+      line: line
+    )
+  }
+
+  @available(iOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(macOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(tvOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  @available(watchOS, deprecated: 9999, message: "Pass a closure as the reducer.")
+  public convenience init<R: ReducerProtocol>(
+    initialState: @autoclosure () -> State,
+    reducer: R,
+    observe toScopedState: @escaping (State) -> ScopedState,
+    prepareDependencies: (inout DependencyValues) -> Void = { _ in },
+    file: StaticString = #file,
+    line: UInt = #line
+  )
+  where
+    R.State == State,
+    R.Action == Action,
+    ScopedState: Equatable,
+    Action == ScopedAction,
+    Environment == Void
+  {
+    self.init(
+      initialState: initialState(),
+      reducer: reducer,
+      observe: toScopedState,
+      send: { $0 },
+      prepareDependencies: prepareDependencies,
+      file: file,
+      line: line
+    )
+  }
+  public convenience init<R: ReducerProtocol>(
+    initialState: @autoclosure () -> State,
+    reducer: R,
+    observe toScopedState: @escaping (State) -> ScopedState,
+    send fromScopedAction: @escaping (ScopedAction) -> Action,
+    prepareDependencies: (inout DependencyValues) -> Void = { _ in },
+    file: StaticString = #file,
+    line: UInt = #line
+  )
+  where
+    R.State == State,
+    R.Action == Action,
+    ScopedState: Equatable,
+    Environment == Void
+  {
+    self.init(
+      initialState: initialState(),
+      reducer: { reducer },
+      observe: toScopedState,
+      send: fromScopedAction,
+      withDependencies: prepareDependencies,
+      file: file,
+      line: line
+    )
+  }
+
+  @available(*, deprecated, message: "State must be equatable to perform assertions.")
+  public convenience init<R: ReducerProtocol>(
+    initialState: @autoclosure () -> State,
+    reducer: R,
+    prepareDependencies: (inout DependencyValues) -> Void = { _ in },
+    file: StaticString = #file,
+    line: UInt = #line
+  )
+  where
+    R.State == State,
+    R.Action == Action,
+    State == ScopedState,
+    Action == ScopedAction,
+    Environment == Void
+  {
+    self.init(
+      initialState: initialState(),
+      reducer: { reducer },
+      withDependencies: prepareDependencies,
+      file: file,
+      line: line
+    )
+  }
+}
+
+extension Store {
+  @available(
+    *,
+    deprecated,
+    message:
+      """
+      'Store.scope' requires an explicit 'action' transform and is intended to be used to transform a store of a parent domain into a store of a child domain.
+
+      When transforming store state into view state, use the 'observe' parameter when constructing a view store.
+      """
+  )
+  public func scope<ChildState>(
+    state toChildState: @escaping (State) -> ChildState
+  ) -> Store<ChildState, Action> {
+    self.scope(state: toChildState, action: { $0 })
+  }
+}
+
+extension EffectPublisher {
+  @available(
+    *,
+    deprecated,
+    message:
+      """
+      Types defined for cancellation may be compiled out of release builds in Swift and are unsafe to use. Use a hashable value, instead, e.g. define a timer cancel identifier as 'enum CancelID { case timer }' and call 'Effect.cancellable(id: CancelID.timer)'.
+      """
+  )
+  public func cancellable(id: Any.Type, cancelInFlight: Bool = false) -> Self {
+    self.cancellable(id: ObjectIdentifier(id), cancelInFlight: cancelInFlight)
+  }
+
+  public static func cancel(id: Any.Type) -> Self {
+    .cancel(id: ObjectIdentifier(id))
+  }
+
+  @available(
+    *,
+    deprecated,
+    message:
+      """
+      Types defined for cancellation may be compiled out of release builds in Swift and are unsafe to use. Use a hashable value, instead, e.g. define a timer cancel identifier as 'enum CancelID { case timer }' and call 'Effect.cancel(id: CancelID.timer)'.
+      """
+  )
+  public static func cancel(ids: [Any.Type]) -> Self {
+    .merge(ids.map(EffectPublisher.cancel(id:)))
+  }
+}
+
+#if swift(>=5.7)
+  @available(
+    *,
+    deprecated,
+    message:
+      """
+      Types defined for cancellation may be compiled out of release builds in Swift and are unsafe to use. Use a hashable value, instead, e.g. define a timer cancel identifier as 'enum CancelID { case timer }' and call 'withTaskCancellation(id: CancelID.timer)'.
+      """
+  )
+  @_unsafeInheritExecutor
+  public func withTaskCancellation<T: Sendable>(
+    id: Any.Type,
+    cancelInFlight: Bool = false,
+    operation: @Sendable @escaping () async throws -> T
+  ) async rethrows -> T {
+    try await withTaskCancellation(
+      id: ObjectIdentifier(id),
+      cancelInFlight: cancelInFlight,
+      operation: operation
+    )
+  }
+#else
+  @available(
+    *,
+    deprecated,
+    message:
+      """
+      Types defined for cancellation may be compiled out of release builds in Swift and are unsafe to use. Use a hashable value, instead, e.g. define a timer cancel identifier as 'enum CancelID { case timer }' and call 'withTaskCancellation(id: CancelID.timer)'.
+      """
+  )
+  public func withTaskCancellation<T: Sendable>(
+    id: Any.Type,
+    cancelInFlight: Bool = false,
+    operation: @Sendable @escaping () async throws -> T
+  ) async rethrows -> T {
+    try await withTaskCancellation(
+      id: ObjectIdentifier(id),
+      cancelInFlight: cancelInFlight,
+      operation: operation
+    )
+  }
+#endif
+
+extension Task where Success == Never, Failure == Never {
+  @available(
+    *,
+    deprecated,
+    message:
+      """
+      Types defined for cancellation may be compiled out of release builds in Swift and are unsafe to use. Use a hashable value, instead, e.g. define a timer cancel identifier as 'enum CancelID { case timer }' and call 'Effect.cancel(id: CancelID.timer)'.
+      """
+  )
+  public static func cancel(id: Any.Type) {
+    self.cancel(id: ObjectIdentifier(id))
+  }
+}
+
 // MARK: - Deprecated after 0.49.2
 
 @available(
@@ -288,9 +598,7 @@ extension AnyReducer {
     breakpointOnNil: Bool,
     file: StaticString = #fileID,
     line: UInt = #line
-  ) -> AnyReducer<
-    State?, Action, Environment
-  > {
+  ) -> AnyReducer<State?, Action, Environment> {
     self.optional(file: file, line: line)
   }
 
@@ -558,7 +866,7 @@ extension Store {
             let task = self.send(fromChildAction(childAction))
             childState = extractChildState(self.state.value) ?? childState
             if let task = task {
-              return .fireAndForget { await task.cancellableValue }
+              return .run { _ in await task.cancellableValue }
             } else {
               return .none
             }
@@ -597,7 +905,7 @@ extension ViewStore where ViewAction: BindableAction, ViewAction.State == ViewSt
     *, deprecated,
     message:
       """
-      Dynamic member lookup is no longer supported for bindable state. Instead of dot-chaining on \
+      Dynamic member lookup is no longer supported for binding state. Instead of dot-chaining on \
       the view store, e.g. 'viewStore.$value', invoke the 'binding' method on view store with a \
       key path to the value, e.g. 'viewStore.binding(\\.$value)'. For more on this change, see: \
       https://github.com/pointfreeco/swift-composable-architecture/pull/810
@@ -740,9 +1048,7 @@ extension AnyReducer {
           To fix this make sure that actions for this reducer can only be sent to a view store \
           when its state contains an element at this index. In SwiftUI applications, use \
           "ForEachStore".
-          """,
-          file: file,
-          line: line
+          """
         )
         return .none
       }
@@ -771,7 +1077,7 @@ extension ForEachStore {
   {
     let data = store.state.value
     self.data = data
-    self.content = WithViewStore(store.scope(state: { $0.map { $0[keyPath: id] } })) { viewStore in
+    self.content = WithViewStore(store, observe: { $0.map { $0[keyPath: id] } }) { viewStore in
       ForEach(Array(viewStore.state.enumerated()), id: \.element) { index, _ in
         content(
           store.scope(

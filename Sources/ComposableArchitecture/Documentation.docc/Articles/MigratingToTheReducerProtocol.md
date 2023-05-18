@@ -377,7 +377,7 @@ A `Parent` reducer conformances can be made by implementing the
 ``ReducerProtocol/body-swift.property-7foai`` property of the ``ReducerProtocol``, which allows you
 to express the parent's logic as a composition of multiple reducers. In particular, you can use
 the ``Reduce`` entry point to implement the core parent logic, and then chain on the 
-``ReducerProtocol/ifLet(_:action:then:file:fileID:line:)`` operator to identify the optional child
+``ReducerProtocol/ifLet(_:action:then:fileID:line:)`` operator to identify the optional child
 state that you want to run the `Feature` reducer on when non-`nil`:
 
 ```swift
@@ -408,7 +408,7 @@ Because the `ifLet` operator has knowledge of both the parent and child reducers
 order to add an additional layer of correctness.
 
 If you are using an enum to model your state, then there is a corresponding 
-``ReducerProtocol/ifCaseLet(_:action:then:file:fileID:line:)`` operator that can help you run a
+``ReducerProtocol/ifCaseLet(_:action:then:fileID:line:)`` operator that can help you run a
 reducer on just one case of the enum.
 
 ## For-each reducers
@@ -417,7 +417,7 @@ Similar to `optional` reducers, another common pattern in applications is the us
 ``AnyReducer/forEach(state:action:environment:file:fileID:line:)-2ypoa`` to allow running a reducer
 on each element of a collection. Converting such child and parent reducers will look nearly
 identical to what we did above for optional reducers, but it will make use of the new
-``ReducerProtocol/forEach(_:action:element:file:fileID:line:)`` operator instead.
+``ReducerProtocol/forEach(_:action:element:fileID:line:)`` operator instead.
 
 In particular, the new `forEach` method operates on the parent reducer by specifying the collection
 sub-state you want to work on, and providing the element reducer you want to be able to run on
@@ -460,18 +460,18 @@ Reducer { state, action, environment in
 ```
 
 In reducer builders, use the new top-level ``BindingReducer`` type to specify when to apply
-mutations to bindable state:
+mutations to binding state:
 
 ```swift
 var body: some ReducerProtocol<State, Action> {
   Reduce { state, action in
-    // Logic to run before bindable state mutations are applied
+    // Logic to run before binding state mutations are applied
   }
 
-  BindingReducer()  // Apply bindable state mutations
+  BindingReducer()  // Apply binding state mutations
 
   Reduce { state, action in
-    // Logic to run after bindable state mutations are applied
+    // Logic to run after binding state mutations are applied
   }
 }
 ```
@@ -561,10 +561,9 @@ Stores can be initialized from an initial state and an instance of a type confor
 
 ```swift
 FeatureView(
-  store: Store(
-    initialState: Feature.State(),
-    reducer: Feature()
-  )
+  store: Store(initialState: Feature.State()) {
+    Feature()
+  }
 )
 ```
 
@@ -583,10 +582,9 @@ Test stores can be initialized from an initial state and an instance of a type c
 ``ReducerProtocol``.
 
 ```swift
-let store = TestStore(
-  initialState: Feature.State(),
-  reducer: Feature()
-)
+let store = TestStore(initialState: Feature.State()) {
+  Feature()
+}
 ```
 
 By default test stores will employ "test" dependencies wherever a dependency is accessed from a
@@ -602,10 +600,9 @@ For example, to install a test clock as the continuous clock dependency you can 
 ```swift
 let clock = TestClock()
 
-let store = TestStore(
-  initialState: Feature.State(),
-  reducer: Feature()
-) {
+let store = TestStore(initialState: Feature.State()) {
+  Feature()
+} withDependencies: {
   $0.continuousClock = .clock 
 }
 ```

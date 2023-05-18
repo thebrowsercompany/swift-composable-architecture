@@ -62,6 +62,7 @@ extension Store {
                     state = $0 ?? state
                     return state
                 },
+                action: { $0 },
                 removeDuplicates: isDuplicate,
                 file: file,
                 line: line

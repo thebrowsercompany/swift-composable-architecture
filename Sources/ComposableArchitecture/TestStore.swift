@@ -79,8 +79,9 @@ import XCTestDynamicOverlay
 ///     let store = TestStore(
 ///       // Given: a counter state of 0
 ///       initialState: Counter.State(count: 0),
-///       reducer: Counter()
-///     )
+///     ) {
+///       Counter()
+///     }
 ///
 ///     // When: the increment button is tapped
 ///     await store.send(.incrementButtonTapped) {
@@ -132,7 +133,7 @@ import XCTestDynamicOverlay
 ///
 ///   @Dependency(\.apiClient) var apiClient
 ///   @Dependency(\.continuousClock) var clock
-///   private enum SearchID {}
+///   private enum CancelID { case search }
 ///
 ///   func reduce(
 ///     into state: inout State, action: Action
@@ -148,7 +149,7 @@ import XCTestDynamicOverlay
 ///
 ///         await send(.response(results))
 ///       }
-///       .cancellable(id: SearchID.self)
+///       .cancellable(id: CancelID.search, cancelInFlight: true)
 ///
 ///     case let .searchResponse(.success(results)):
 ///       state.results = results
@@ -169,10 +170,9 @@ import XCTestDynamicOverlay
 /// // Create a test clock to control the timing of effects
 /// let clock = TestClock()
 ///
-/// let store = TestStore(
-///   initialState: Search.State(),
-///   reducer: Search()
-/// ) {
+/// let store = TestStore(initialState: Search.State()) {
+///   Search()
+/// } withDependencies: {
 ///   // Override the clock dependency with the test clock
 ///   $0.continuousClock = clock
 ///
@@ -300,10 +300,9 @@ import XCTestDynamicOverlay
 /// tab switched to activity:
 ///
 /// ```swift
-/// let store = TestStore(
-///   initialState: App.State(),
-///   reducer: App()
-/// )
+/// let store = TestStore(initialState: App.State()) {
+///   App()
+/// }
 ///
 /// // 1️⃣ Emulate user tapping on submit button.
 /// await store.send(.login(.submitButtonTapped)) {
@@ -349,10 +348,9 @@ import XCTestDynamicOverlay
 /// the test store, and then just assert on what we are interested in:
 ///
 /// ```swift
-/// let store = TestStore(
-///   initialState: App.State(),
-///   reducer: App()
-/// )
+/// let store = TestStore(App.State()) {
+///   App()
+/// }
 /// store.exhaustivity = .off // ⬅️
 ///
 /// await store.send(.login(.submitButtonTapped))
@@ -372,10 +370,9 @@ import XCTestDynamicOverlay
 /// without actually causing a failure, you can use ``Exhaustivity/off(showSkippedAssertions:)``:
 ///
 /// ```swift
-/// let store = TestStore(
-///   initialState: App.State(),
-///   reducer: App()
-/// )
+/// let store = TestStore(initialState: App.State()) {
+///   App()
+/// }
 /// store.exhaustivity = .off(showSkippedAssertions: true) // ⬅️
 ///
 /// await store.send(.login(.submitButtonTapped))
@@ -569,8 +566,8 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
   ///     state.
   public convenience init<R: ReducerProtocol>(
     initialState: @autoclosure () -> State,
-    reducer: R,
-    prepareDependencies: (inout DependencyValues) -> Void = { _ in },
+    @ReducerBuilder<State, Action> reducer: () -> R,
+    withDependencies prepareDependencies: (inout DependencyValues) -> Void = { _ in },
     file: StaticString = #file,
     line: UInt = #line
   )
@@ -587,7 +584,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
       reducer: reducer,
       observe: { $0 },
       send: { $0 },
-      prepareDependencies: prepareDependencies,
+      withDependencies: prepareDependencies,
       file: file,
       line: line
     )
@@ -609,9 +606,9 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
   ///     state.
   public convenience init<R: ReducerProtocol>(
     initialState: @autoclosure () -> State,
-    reducer: R,
+    @ReducerBuilder<State, Action> reducer: () -> R,
     observe toScopedState: @escaping (State) -> ScopedState,
-    prepareDependencies: (inout DependencyValues) -> Void = { _ in },
+    withDependencies prepareDependencies: (inout DependencyValues) -> Void = { _ in },
     file: StaticString = #file,
     line: UInt = #line
   )
@@ -627,7 +624,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
       reducer: reducer,
       observe: toScopedState,
       send: { $0 },
-      prepareDependencies: prepareDependencies,
+      withDependencies: prepareDependencies,
       file: file,
       line: line
     )
@@ -652,10 +649,10 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
   ///     state.
   public init<R: ReducerProtocol>(
     initialState: @autoclosure () -> State,
-    reducer: R,
+    @ReducerBuilder<State, Action> reducer: () -> R,
     observe toScopedState: @escaping (State) -> ScopedState,
     send fromScopedAction: @escaping (ScopedAction) -> Action,
-    prepareDependencies: (inout DependencyValues) -> Void = { _ in },
+    withDependencies prepareDependencies: (inout DependencyValues) -> Void = { _ in },
     file: StaticString = #file,
     line: UInt = #line
   )
@@ -665,24 +662,17 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
     ScopedState: Equatable,
     Environment == Void
   {
-    var dependencies = DependencyValues._current
-    let initialState = withDependencies {
-      prepareDependencies(&dependencies)
-      $0 = dependencies
-    } operation: {
-      initialState()
+    let reducer = withDependencies(prepareDependencies) {
+      TestReducer(Reduce(reducer()), initialState: initialState())
     }
-
-    let reducer = TestReducer(Reduce(reducer), initialState: initialState)
     self._environment = .init(wrappedValue: ())
     self.file = file
     self.fromScopedAction = fromScopedAction
     self.line = line
     self.reducer = reducer
-    self.store = Store(initialState: initialState, reducer: reducer)
+    self.store = Store(initialState: reducer.state, reducer: reducer)
     self.timeout = 100 * NSEC_PER_MSEC
     self.toScopedState = toScopedState
-    self.dependencies = dependencies
   }
 
   /// Creates a test store with an initial state and a reducer powering its runtime.
@@ -696,8 +686,8 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
   @available(*, deprecated, message: "State must be equatable to perform assertions.")
   public init<R: ReducerProtocol>(
     initialState: @autoclosure () -> State,
-    reducer: R,
-    prepareDependencies: (inout DependencyValues) -> Void = { _ in },
+    @ReducerBuilder<State, Action> reducer: () -> R,
+    withDependencies prepareDependencies: (inout DependencyValues) -> Void = { _ in },
     file: StaticString = #file,
     line: UInt = #line
   )
@@ -708,24 +698,17 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
     Action == ScopedAction,
     Environment == Void
   {
-    var dependencies = DependencyValues._current
-    prepareDependencies(&dependencies)
-    let initialState = withDependencies {
-      $0 = dependencies
-    } operation: {
-      initialState()
+    let reducer = withDependencies(prepareDependencies) {
+      TestReducer(Reduce(reducer()), initialState: initialState())
     }
-
-    let reducer = TestReducer(Reduce(reducer), initialState: initialState)
     self._environment = .init(wrappedValue: ())
     self.file = file
     self.fromScopedAction = { $0 }
     self.line = line
     self.reducer = reducer
-    self.store = Store(initialState: initialState, reducer: reducer)
+    self.store = Store(initialState: reducer.state, reducer: reducer)
     self.timeout = 100 * NSEC_PER_MSEC
     self.toScopedState = { $0 }
-    self.dependencies = dependencies
   }
 
   @available(
@@ -948,8 +931,8 @@ extension TestStore where ScopedState: Equatable {
   /// ```
   ///
   /// This method suspends in order to allow any effects to start. For example, if you track an
-  /// analytics event in a ``EffectPublisher/fireAndForget(priority:_:)`` when an action is sent,
-  /// you can assert on that behavior immediately after awaiting `store.send`:
+  /// analytics event in an effect when an action is sent, you can assert on that behavior
+  /// immediately after awaiting `store.send`:
   ///
   /// ```swift
   /// @MainActor
@@ -961,11 +944,11 @@ extension TestStore where ScopedState: Equatable {
   ///     }
   ///   )
   ///
-  ///   let store = TestStore(
-  ///     initialState: State(),
-  ///     reducer: reducer,
-  ///     environment: Environment(analytics: analytics)
-  ///   )
+  ///   let store = TestStore(initialState: Feature.State()) {
+  ///     Feature()
+  ///   } withDependencies {
+  ///     $0.analytics = analytics
+  ///   }
   ///
   ///   await store.send(.buttonTapped)
   ///
@@ -1184,7 +1167,7 @@ extension TestStore where ScopedState: Equatable {
       var expectedWhenGivenPreviousState = expected
       if let updateStateToExpectedResult = updateStateToExpectedResult {
         try withDependencies {
-          $0 = self.dependencies
+          $0 = self.reducer.dependencies
         } operation: {
           try updateStateToExpectedResult(&expectedWhenGivenPreviousState)
         }
@@ -1201,7 +1184,7 @@ extension TestStore where ScopedState: Equatable {
       var expectedWhenGivenActualState = actual
       if let updateStateToExpectedResult = updateStateToExpectedResult {
         try withDependencies {
-          $0 = self.dependencies
+          $0 = self.reducer.dependencies
         } operation: {
           try updateStateToExpectedResult(&expectedWhenGivenActualState)
         }
@@ -1220,7 +1203,7 @@ extension TestStore where ScopedState: Equatable {
           _XCTExpectFailure(strict: false) {
             do {
               try withDependencies {
-                $0 = self.dependencies
+                $0 = self.reducer.dependencies
               } operation: {
                 try updateStateToExpectedResult(&expectedWhenGivenPreviousState)
               }
@@ -1445,7 +1428,12 @@ extension TestStore where ScopedState: Equatable, Action: Equatable {
       }()
       return
     }
-    await self.receiveAction(timeout: nanoseconds, file: file, line: line)
+    await self.receiveAction(
+      matching: { expectedAction == $0 },
+      timeout: nanoseconds,
+      file: file,
+      line: line
+    )
     _ = {
       self.receive(expectedAction, assert: updateStateToExpectedResult, file: file, line: line)
     }()
@@ -1462,7 +1450,6 @@ extension TestStore where ScopedState: Equatable {
   /// - Parameters:
   ///   - isMatching: A closure that attempts to match an action. If it returns `false`, a test
   ///     failure is reported.
-  ///   - nanoseconds: The amount of time to wait for the expected action.
   ///   - updateStateToExpectedResult: A closure that asserts state changed by sending the action to
   ///     the store. The mutable state sent to this closure must be modified to match the state of
   ///     the store after processing the given action. Do not provide a closure if no change is
@@ -1629,7 +1616,7 @@ extension TestStore where ScopedState: Equatable {
       }()
       return
     }
-    await self.receiveAction(timeout: nanoseconds, file: file, line: line)
+    await self.receiveAction(matching: isMatching, timeout: nanoseconds, file: file, line: line)
     _ = {
       self.receive(isMatching, assert: updateStateToExpectedResult, file: file, line: line)
     }()
@@ -1683,7 +1670,12 @@ extension TestStore where ScopedState: Equatable {
       }()
       return
     }
-    await self.receiveAction(timeout: nanoseconds, file: file, line: line)
+    await self.receiveAction(
+      matching: { actionCase.extract(from: $0) != nil },
+      timeout: nanoseconds,
+      file: file,
+      line: line
+    )
     _ = {
       self.receive(actionCase, assert: updateStateToExpectedResult, file: file, line: line)
     }()
@@ -1739,7 +1731,12 @@ extension TestStore where ScopedState: Equatable {
         }()
         return
       }
-      await self.receiveAction(timeout: duration.nanoseconds, file: file, line: line)
+      await self.receiveAction(
+        matching: { actionCase.extract(from: $0) != nil },
+        timeout: duration.nanoseconds,
+        file: file,
+        line: line
+      )
       _ = {
         self.receive(actionCase, assert: updateStateToExpectedResult, file: file, line: line)
       }()
@@ -1838,6 +1835,7 @@ extension TestStore where ScopedState: Equatable {
   }
 
   private func receiveAction(
+    matching predicate: (Action) -> Bool,
     timeout nanoseconds: UInt64?,
     file: StaticString,
     line: UInt
@@ -1849,8 +1847,14 @@ extension TestStore where ScopedState: Equatable {
     while !Task.isCancelled {
       await Task.detached(priority: .background) { await Task.yield() }.value
 
-      guard self.reducer.receivedActions.isEmpty
-      else { break }
+      switch self.exhaustivity {
+      case .on:
+        guard self.reducer.receivedActions.isEmpty
+        else { return }
+      case .off:
+        guard !self.reducer.receivedActions.contains(where: { predicate($0.action) })
+        else { return }
+      }
 
       guard start.distance(to: DispatchTime.now().uptimeNanoseconds) < nanoseconds
       else {
@@ -1872,12 +1876,13 @@ extension TestStore where ScopedState: Equatable {
             clock/scheduler, advance it so that the effects may complete, or consider using \
             an immediate clock/scheduler to immediately perform the effect instead.
 
-            If you are not yet using a scheduler, or can not use a scheduler, \(timeoutMessage).
+            If you are not yet using a clock/scheduler, or can not use a clock/scheduler, \
+            \(timeoutMessage).
             """
         }
         XCTFail(
           """
-          Expected to receive an action, but received none\
+          Expected to receive \(self.exhaustivity == .on ? "an action" : "a matching action"), but received none\
           \(nanoseconds > 0 ? " after \(Double(nanoseconds)/Double(NSEC_PER_SEC)) seconds" : "").
 
           \(suggestion)
@@ -1888,9 +1893,6 @@ extension TestStore where ScopedState: Equatable {
         return
       }
     }
-
-    guard !Task.isCancelled
-    else { return }
   }
 }
 
@@ -2114,10 +2116,6 @@ extension TestStore {
       file: file,
       line: line
     )
-
-    for effect in self.reducer.inFlightEffects {
-      _ = EffectPublisher<Never, Never>.cancel(id: effect.id).sink { _ in }
-    }
     self.reducer.inFlightEffects = []
   }
 
@@ -2174,8 +2172,8 @@ extension TestStore {
 /// await store.send(.stopTimerButtonTapped).finish()
 /// ```
 ///
-/// See ``TestStore/finish(timeout:file:line:)`` for the ability to await all in-flight
-/// effects in the test store.
+/// See ``TestStore/finish(timeout:file:line:)`` for the ability to await all in-flight effects in
+/// the test store.
 ///
 /// See ``ViewStoreTask`` for the analog provided to ``ViewStore``.
 public struct TestStoreTask: Hashable, Sendable {
@@ -2284,8 +2282,8 @@ public struct TestStoreTask: Hashable, Sendable {
 
 class TestReducer<State, Action>: ReducerProtocol {
   let base: Reduce<State, Action>
-  var dependencies = DependencyValues()
-  let effectDidSubscribe = AsyncStream<Void>.streamWithContinuation()
+  var dependencies: DependencyValues
+  let effectDidSubscribe = AsyncStream.makeStream(of: Void.self)
   var inFlightEffects: Set<LongLivingEffect> = []
   var receivedActions: [(action: Action, state: State)] = []
   var state: State
@@ -2294,7 +2292,9 @@ class TestReducer<State, Action>: ReducerProtocol {
     _ base: Reduce<State, Action>,
     initialState: State
   ) {
+    @Dependency(\.self) var dependencies
     self.base = base
+    self.dependencies = dependencies
     self.state = initialState
   }
 
@@ -2368,16 +2368,23 @@ class TestReducer<State, Action>: ReducerProtocol {
   }
 }
 
-extension Task where Success == Never, Failure == Never {
-  // NB: We would love if this was not necessary, but due to a lack of async testing tools in Swift
-  //     we're not sure if there is an alternative. See this forum post for more information:
+extension Task where Success == Failure, Failure == Never {
+  // NB: We would love if this was not necessary. See this forum post for more information:
   //     https://forums.swift.org/t/reliably-testing-code-that-adopts-swift-concurrency/57304
-  @_spi(Internals) public static func megaYield(count: Int = 10) async {
-    for _ in 1...count {
+  @_spi(Internals) public static func megaYield(count: Int = defaultMegaYieldCount) async {
+    for _ in 0..<count {
       await Task<Void, Never>.detached(priority: .background) { await Task.yield() }.value
     }
   }
 }
+
+@_spi(Internals) public let defaultMegaYieldCount = max(
+  0,
+  min(
+    ProcessInfo.processInfo.environment["TASK_MEGA_YIELD_COUNT"].flatMap(Int.init) ?? 20,
+    10_000
+  )
+)
 
 // NB: Only needed until Xcode ships a macOS SDK that uses the 5.7 standard library.
 // See: https://forums.swift.org/t/xcode-14-rc-cannot-specialize-protocol-type/60171/15

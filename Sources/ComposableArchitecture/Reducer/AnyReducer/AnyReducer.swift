@@ -450,8 +450,8 @@ public struct AnyReducer<State, Action, Environment> {
   }
 
   /// This API has been soft-deprecated in favor of
-  /// ``ReducerProtocol/ifCaseLet(_:action:then:file:fileID:line:)`` and
-  /// ``Scope/init(state:action:child:file:fileID:line:)``. Read <doc:MigratingToTheReducerProtocol>
+  /// ``ReducerProtocol/ifCaseLet(_:action:then:fileID:line:)`` and
+  /// ``Scope/init(state:action:child:fileID:line:)``. Read <doc:MigratingToTheReducerProtocol>
   /// for more information.
   ///
   /// Transforms a reducer that works on child state, action, and environment into one that works on
@@ -571,7 +571,7 @@ public struct AnyReducer<State, Action, Environment> {
   ///     let childReducer = Reducer<
   ///       ChildState, ChildAction, ChildEnvironment
   ///     > { state, action environment in
-  ///       enum MotionID {}
+  ///       enum CancelID { case motion }
   ///
   ///       switch action {
   ///       case .onAppear:
@@ -579,11 +579,11 @@ public struct AnyReducer<State, Action, Environment> {
   ///         return environment.motionClient
   ///           .start()
   ///           .map(ChildAction.motion)
-  ///           .cancellable(id: MotionID.self)
+  ///           .cancellable(id: CancelID.motion)
   ///
   ///       case .onDisappear:
   ///         // And explicitly cancel them when the domain is torn down
-  ///         return .cancel(id: MotionID.self)
+  ///         return .cancel(id: CancelID.motion)
   ///       ...
   ///       }
   ///     }
@@ -604,7 +604,7 @@ public struct AnyReducer<State, Action, Environment> {
   ///
   ///     ```swift
   ///     SwitchStore(self.parentStore) {
-  ///       CaseLet(state: /ParentState.child, action: ParentAction.child) { childStore in
+  ///       CaseLet(/ParentState.child, action: ParentAction.child) { childStore in
   ///         // This destination only appears when child state matches
   ///         WithViewStore(childStore) { childViewStore in
   ///           // So this action can only be sent when child state is available
@@ -691,9 +691,7 @@ public struct AnyReducer<State, Action, Environment> {
           • This action was sent to the store while state was another case. Make sure that \
           actions for this reducer can only be sent to a view store when state is non-"nil". \
           In SwiftUI applications, use "SwitchStore".
-          """,
-          file: file,
-          line: line
+          """
         )
         return .none
       }
@@ -711,7 +709,7 @@ public struct AnyReducer<State, Action, Environment> {
   }
 
   /// This API has been soft-deprecated in favor of
-  /// ``ReducerProtocol/ifLet(_:action:then:file:fileID:line:)``. Read
+  /// ``ReducerProtocol/ifLet(_:action:then:fileID:line:)``. Read
   /// <doc:MigratingToTheReducerProtocol> for more information.
   ///
   /// Transforms a reducer that works on non-optional state into one that works on optional state by
@@ -818,7 +816,7 @@ public struct AnyReducer<State, Action, Environment> {
   ///     let childReducer = Reducer<
   ///       ChildState, ChildAction, ChildEnvironment
   ///     > { state, action environment in
-  ///       enum MotionID {}
+  ///       enum CancelID { case motion }
   ///
   ///       switch action {
   ///       case .onAppear:
@@ -826,11 +824,11 @@ public struct AnyReducer<State, Action, Environment> {
   ///         return environment.motionClient
   ///           .start()
   ///           .map(ChildAction.motion)
-  ///           .cancellable(id: MotionID.self)
+  ///           .cancellable(id: CancelID.motion)
   ///
   ///       case .onDisappear:
   ///         // And explicitly cancel them when the domain is torn down
-  ///         return .cancel(id: MotionID.self)
+  ///         return .cancel(id: CancelID.motion)
   ///       ...
   ///       }
   ///     }
@@ -931,9 +929,7 @@ public struct AnyReducer<State, Action, Environment> {
           • This action was sent to the store while state was "nil". Make sure that actions for \
           this reducer can only be sent to a view store when state is non-"nil". In SwiftUI \
           applications, use "IfLetStore".
-          """,
-          file: file,
-          line: line
+          """
         )
         return .none
       }
@@ -942,7 +938,7 @@ public struct AnyReducer<State, Action, Environment> {
   }
 
   /// This API has been soft-deprecated in favor of
-  /// ``ReducerProtocol/forEach(_:action:element:file:fileID:line:)``. Read
+  /// ``ReducerProtocol/forEach(_:action:element:fileID:line:)``. Read
   /// <doc:MigratingToTheReducerProtocol> for more information.
   ///
   /// A version of ``pullback(state:action:environment:)`` that transforms a reducer that works on
@@ -1052,9 +1048,7 @@ public struct AnyReducer<State, Action, Environment> {
           To fix this make sure that actions for this reducer can only be sent to a view store \
           when its state contains an element at this id. In SwiftUI applications, use \
           "ForEachStore".
-          """,
-          file: file,
-          line: line
+          """
         )
         return .none
       }
@@ -1120,9 +1114,7 @@ public struct AnyReducer<State, Action, Environment> {
           • This action was sent to the store while its state contained no element at this \
           key. To fix this make sure that actions for this reducer can only be sent to a view \
           store when its state contains an element at this key.
-          """,
-          file: file,
-          line: line
+          """
         )
         return .none
       }

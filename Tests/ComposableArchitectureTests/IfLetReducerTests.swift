@@ -2,14 +2,13 @@ import ComposableArchitecture
 import XCTest
 
 @MainActor
-final class IfLetReducerTests: XCTestCase {
+final class IfLetReducerTests: BaseTCATestCase {
   #if DEBUG
     func testNilChild() async {
-      let store = TestStore(
-        initialState: Int?.none,
-        reducer: EmptyReducer<Int?, Void>()
+      let store = TestStore(initialState: Int?.none) {
+        EmptyReducer<Int?, Void>()
           .ifLet(\.self, action: /.self) {}
-      )
+      }
 
       XCTExpectFailure {
         $0.compactDescription == """

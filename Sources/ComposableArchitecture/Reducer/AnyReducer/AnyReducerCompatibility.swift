@@ -158,8 +158,8 @@ extension Store {
   ) {
     self.init(
       initialState: initialState,
-      reducer: Reduce(reducer, environment: environment),
-      instrumentation: instrumentation
+      instrumentation: instrumentation,
+      reducer: { Reduce<State, Action>(reducer, environment: environment) }
     )
   }
 }

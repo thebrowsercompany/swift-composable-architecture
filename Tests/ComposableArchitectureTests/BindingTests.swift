@@ -2,7 +2,7 @@ import ComposableArchitecture
 import XCTest
 
 @MainActor
-final class BindingTests: XCTestCase {
+final class BindingTests: BaseTCATestCase {
   #if swift(>=5.7)
     func testNestedBindingState() {
       struct BindingTest: ReducerProtocol {
@@ -32,7 +32,7 @@ final class BindingTests: XCTestCase {
         }
       }
 
-      let store = Store(initialState: BindingTest.State(), reducer: BindingTest())
+      let store = Store(initialState: BindingTest.State()) { BindingTest() }
 
       let viewStore = ViewStore(store, observe: { $0 })
 

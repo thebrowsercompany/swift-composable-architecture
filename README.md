@@ -85,6 +85,10 @@ iOS word search game built in SwiftUI and the Composable Architecture.
 
 ## Basic Usage
 
+> **Note**
+> For a step-by-step interactive tutorial, be sure to check out [Meet the Composable
+> Architecture][meet-tca].
+
 To build a feature using the Composable Architecture you define some types and values that model 
 your domain:
 
@@ -173,15 +177,17 @@ struct Feature: ReducerProtocol {
         return .none
 
       case .numberFactButtonTapped:
-        return .task { [count = state.count] in
-          await .numberFactResponse(
-            TaskResult {
-              String(
-                decoding: try await URLSession.shared
-                  .data(from: URL(string: "http://numbersapi.com/\(count)/trivia")!).0,
-                as: UTF8.self
-              )
-            }
+        return .run { [count = state.count] send in
+          await send(
+            .numberFactResponse(
+              TaskResult {
+                String(
+                  decoding: try await URLSession.shared
+                    .data(from: URL(string: "http://numbersapi.com/\(count)/trivia")!).0,
+                  as: UTF8.self
+                )
+              }
+            )
           )
         }
 
@@ -312,10 +318,9 @@ struct MyApp: App {
   var body: some Scene {
     WindowGroup {
       FeatureView(
-        store: Store(
-          initialState: Feature.State(),
-          reducer: Feature()
-        )
+        store: Store(initialState: Feature.State()) {
+          Feature()
+        }
       )
     }
   }
@@ -339,10 +344,9 @@ does extra work to allow you to assert how your feature evolves as actions are s
 ```swift
 @MainActor
 func testFeature() async {
-  let store = TestStore(
-    initialState: Feature.State(),
-    reducer: Feature()
-  )
+  let store = TestStore(initialState: Feature.State()) {
+    Feature()
+  }
 }
 ```
 
@@ -393,8 +397,10 @@ Then we can use it in the `reduce` implementation:
 
 ```swift
 case .numberFactButtonTapped:
-  return .task { [count = state.count] in 
-    await .numberFactResponse(TaskResult { try await self.numberFact(count) })
+  return .run { [count = state.count] send in 
+    await send(
+      .numberFactResponse(TaskResult { try await self.numberFact(count) })
+    )
   }
 ```
 
@@ -427,12 +433,9 @@ fact:
 ```swift
 @MainActor
 func testFeature() async {
-  let store = TestStore(
-    initialState: Feature.State(),
-    reducer: Feature(
-      numberFact: { "\($0) is a good number Brent" }
-    )
-  )
+  let store = TestStore(initialState: Feature.State()) {
+    Feature(numberFact: { "\($0) is a good number Brent" })
+  }
 }
 ```
 
@@ -492,15 +495,18 @@ extension DependencyValues {
 ```
 
 With that little bit of upfront work done you can instantly start making use of the dependency in 
-any feature:
+any feature by using the `@Dependency` property wrapper:
 
-```swift
-struct Feature: ReducerProtocol {
-  struct State { … }
-  enum Action { … }
-  @Dependency(\.numberFact) var numberFact
-  …
-}
+```diff
+ struct Feature: ReducerProtocol {
+-  let numberFact: (Int) async throws -> String
++  @Dependency(\.numberFact) var numberFact
+   
+   …
+
+-  try await self.numberFact(count)
++  try await self.numberFact.fetch(count)
+ }
 ```
 
 This code works exactly as it did before, but you no longer have to explicitly pass the dependency 
@@ -515,10 +521,9 @@ This means the entry point to the application no longer needs to construct depen
 struct MyApp: App {
   var body: some Scene {
     FeatureView(
-      store: Store(
-        initialState: Feature.State(),
-        reducer: Feature()
-      )
+      store: Store(initialState: Feature.State()) {
+        Feature()
+      }
     )
   }
 }
@@ -528,10 +533,9 @@ And the test store can be constructed without specifying any dependencies, but y
 override any dependency you need to for the purpose of the test:
 
 ```swift
-let store = TestStore(
-  initialState: Feature.State(),
-  reducer: Feature()
-) {
+let store = TestStore(initialState: Feature.State()) {
+  Feature()
+} withDependencies: {
   $0.numberFact.fetch = { "\($0) is a good number Brent" }
 }
 
@@ -548,13 +552,14 @@ advanced usages.
 The documentation for releases and `main` are available here:
 
 * [`main`](https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture)
-* [0.51.0](https://pointfreeco.github.io/swift-composable-architecture/0.51.0/documentation/composablearchitecture/)
+* [0.53.0](https://pointfreeco.github.io/swift-composable-architecture/0.53.0/documentation/composablearchitecture/)
 
 <details>
   <summary>
   Other versions
   </summary>
 
+  * [0.52.0](https://pointfreeco.github.io/swift-composable-architecture/0.52.0/documentation/composablearchitecture/)
   * [0.50.0](https://pointfreeco.github.io/swift-composable-architecture/0.50.0/documentation/composablearchitecture/)
   * [0.49.0](https://pointfreeco.github.io/swift-composable-architecture/0.49.0/documentation/composablearchitecture/)
   * [0.48.0](https://pointfreeco.github.io/swift-composable-architecture/0.48.0/documentation/composablearchitecture/)
@@ -619,7 +624,9 @@ The following translations of this README have been contributed by members of th
 * [Italian](https://gist.github.com/Bellaposa/5114e6d4d55fdb1388e8186886d48958)
 * [Japanese](https://gist.github.com/kalupas226/bdf577e4a7066377ea0a8aaeebcad428)
 * [Korean](https://gist.github.com/pilgwon/ea05e2207ab68bdd1f49dff97b293b17)
+* [Polish](https://gist.github.com/MarcelStarczyk/6b6153051f46912a665c32199f0d1d54)
 * [Portuguese](https://gist.github.com/SevioCorrea/2bbf337cd084a58c89f2f7f370626dc8)
+* [Russian](https://gist.github.com/artyom-ivanov/ed0417fd1f008f0492d3431c033175df)
 * [Simplified Chinese](https://gist.github.com/sh3l6orrr/10c8f7c634a892a9c37214f3211242ad)
 * [Spanish](https://gist.github.com/pitt500/f5e32fccb575ce112ffea2827c7bf942)
 
@@ -712,3 +719,4 @@ This library is released under the MIT license. See [LICENSE](LICENSE) for detai
 [concurrency-article]: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/swiftconcurrency
 [bindings-article]: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/bindings
 [migrating-article]: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/migratingtothereducerprotocol
+[meet-tca]: https://pointfreeco.github.io/swift-composable-architecture/main/tutorials/meetcomposablearchitecture

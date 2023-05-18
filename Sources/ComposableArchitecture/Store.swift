@@ -12,10 +12,9 @@ import Foundation
 ///   var body: some Scene {
 ///     WindowGroup {
 ///       RootView(
-///         store: Store(
-///           initialState: AppReducer.State(),
-///           reducer: AppReducer()
-///         )
+///         store: Store(initialState: AppReducer.State()) {
+///           AppReducer()
+///         }
 ///       )
 ///     }
 ///   }
@@ -148,16 +147,19 @@ public final class Store<State, Action> {
   ///   - instrumentation: The instrumentation object to use
   public convenience init<R: ReducerProtocol>(
     initialState: @autoclosure () -> R.State,
-    reducer: R,
     parentStore: AnyObject? = nil,
     instrumentation: Instrumentation = .noop,
-    prepareDependencies: ((inout DependencyValues) -> Void)? = nil,
+    @ReducerBuilder<State, Action> reducer: () -> R,
+    withDependencies prepareDependencies: ((inout DependencyValues) -> Void)? = nil,
     file: StaticString = #file,
     line: UInt = #line
   ) where R.State == State, R.Action == Action {
     if let prepareDependencies = prepareDependencies {
+      let (initialState, reducer) = withDependencies(prepareDependencies) {
+        (initialState(), reducer())
+      }
       self.init(
-        initialState: withDependencies(prepareDependencies) { initialState() },
+        initialState: initialState,
         reducer: reducer.transformDependency(\.self, transform: prepareDependencies),
         mainThreadChecksEnabled: true,
         parentStore: parentStore,
@@ -168,7 +170,7 @@ public final class Store<State, Action> {
     } else {
       self.init(
         initialState: initialState(),
-        reducer: reducer,
+        reducer: reducer(),
         mainThreadChecksEnabled: true,
         parentStore: parentStore,
         instrumentation: instrumentation,
@@ -189,10 +191,9 @@ public final class Store<State, Action> {
   /// enum Action { case login(LoginAction), ... }
   ///
   /// // A store that runs the entire application.
-  /// let store = Store(
-  ///   initialState: AppReducer.State(),
-  ///   reducer: AppReducer()
-  /// )
+  /// let store = Store(initialState: AppReducer.State()) {
+  ///   AppReducer()
+  /// }
   ///
   /// // Construct a login view by scoping the store to one that works with only login domain.
   /// LoginView(
@@ -349,21 +350,6 @@ public final class Store<State, Action> {
     #endif
   }
 
-  /// Scopes the store to one that exposes child state.
-  ///
-  /// A version of ``scope(state:action:)`` that leaves the action type unchanged.
-  ///
-  /// - Parameter toChildState: A function that transforms `State` into `ChildState`.
-  /// - Returns: A new store with its domain (state and action) transformed.
-  public func scope<ChildState>(
-    state toChildState: @escaping (State) -> ChildState,
-    removeDuplicates isDuplicate: ((ChildState, ChildState) -> Bool)? = nil,
-    file: StaticString = #file,
-    line: UInt = #line
-  ) -> Store<ChildState, Action> {
-    self.scope(state: toChildState, action: { $0 }, removeDuplicates: isDuplicate, file: file, line: line)
-  }
-
   func filter(
     _ isSent: @escaping (State, Action) -> Bool,
     file: StaticString = #file,
@@ -501,13 +487,13 @@ public final class Store<State, Action> {
           tasks.wrappedValue.append(
             Task(priority: priority) { @MainActor in
               #if DEBUG
-                var isCompleted = false
-                defer { isCompleted = true }
+                let isCompleted = LockIsolated(false)
+                defer { isCompleted.setValue(true) }
               #endif
               await operation(
                 Send { effectAction in
                   #if DEBUG
-                    if isCompleted {
+                    if isCompleted.value {
                       runtimeWarn(
                         """
                         An action was sent from a completed effect:
@@ -561,7 +547,7 @@ public final class Store<State, Action> {
 
   /// Returns a "stateless" store by erasing state to `Void`.
   public func stateless(file: StaticString = #file, line: UInt = #line) -> Store<Void, Action> {
-    self.scope(state: { _ in () }, file: file, line: line)
+    self.scope(state: { _ in () }, action: { $0 }, file: file, line: line)
   }
 
   /// Returns an "actionless" store by erasing action to `Never`.
@@ -761,7 +747,7 @@ public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
         self.isSending = false
       }
       if let action = self.fromScopedAction(state, action), let task = self.rootStore.send(action) {
-        return .fireAndForget { await task.cancellableValue }
+        return .run { _ in await task.cancellableValue }
       } else {
         return .none
       }
@@ -786,7 +772,7 @@ public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
       _ store: Store<ScopedState, ScopedAction>,
       state toRescopedState: @escaping (ScopedState) -> RescopedState,
       action fromRescopedAction: @escaping (RescopedState, RescopedAction) -> ScopedAction?,
-      removeDuplicates isDuplicate: ((RescopedState, RescopedState) -> Bool)? = nil,
+      removeDuplicates isDuplicate: ((RescopedState, RescopedState) -> Bool)?,
       instrumentation: Instrumentation,
       file: StaticString = #file,
       line: UInt = #line
@@ -800,9 +786,9 @@ public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
       )
       let childStore = Store<RescopedState, RescopedAction>(
         initialState: toRescopedState(store.state.value),
-        reducer: reducer,
         parentStore: store,
         instrumentation: instrumentation,
+        reducer: { reducer },
         file: file,
         line: line
       )
@@ -894,7 +880,7 @@ public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
           let task = self.root.send(rootAction)
           rescopedState = toRescopedState(scopedStore.state.value)
           if let task = task {
-            return .fireAndForget { await task.cancellableValue }
+            return .run { _ in await task.cancellableValue }
           } else {
             return .none
           }
