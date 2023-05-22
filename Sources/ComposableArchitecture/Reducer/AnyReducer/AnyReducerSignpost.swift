@@ -1,5 +1,4 @@
-#if canImport(os.signpost)
-
+#if canImport(OSLog)
   import OpenCombineShim
   import os.signpost
 

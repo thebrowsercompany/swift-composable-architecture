@@ -1,5 +1,5 @@
 #if DEBUG
-  import Combine
+  import OpenCombineShim
   import CustomDump
   import XCTest
 
@@ -43,6 +43,7 @@
       )
     }
 
+  #if canImport(SwiftUI)
     func testBindingAction() {
       struct State {
         @BindingState var width = 0
@@ -50,16 +51,18 @@
       let action = BindingAction.set(\State.$width, 50)
       var dump = ""
       customDump(action, to: &dump)
+
       XCTAssertEqual(
         dump,
         #"""
         BindingAction.set(
-          WritableKeyPath<State, BindingState<Int>>,
+          WritableKeyPath<DebugTests.State, BindingState<Int>>,
           50
         )
         """#
       )
     }
+#endif
 
     @MainActor
     func testDebugReducer() async {

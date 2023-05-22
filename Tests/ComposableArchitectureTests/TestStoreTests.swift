@@ -1,6 +1,9 @@
-import Combine
+import OpenCombineShim
 import ComposableArchitecture
 import XCTest
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 @MainActor
 final class TestStoreTests: XCTestCase {
@@ -84,7 +87,7 @@ final class TestStoreTests: XCTestCase {
     }
   }
 
-  #if DEBUG
+  #if DEBUG && !os(Windows)
     func testExpectedStateEquality() async {
       struct State: Equatable {
         var count: Int = 0
@@ -191,7 +194,7 @@ final class TestStoreTests: XCTestCase {
         predicateShouldBeCalledExpectation.fulfill()
         return action == .finished
       }
-      wait(for: [predicateShouldBeCalledExpectation], timeout: 0)
+      await fulfillment(of: [predicateShouldBeCalledExpectation], timeout: 0)
 
       XCTExpectFailure {
         store.send(.noop)

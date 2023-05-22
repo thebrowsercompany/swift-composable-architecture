@@ -2,16 +2,14 @@ import ComposableArchitecture
 import OpenCombineShim
 import XCTest
 
-// TODO: windows
-// `Could not cast value of type '(ComposableArchitectureTests.CompatibilityTests) -> @Swift.MainActor () -> ()' (00007FFE8145A5B0) to '(ComposableArchitectureTests.CompatibilityTests) -> () -> ()' (00007FFE8145A760).`
-// @MainActor
+@MainActor
 final class CompatibilityTests: XCTestCase {
   var cancellables: Set<AnyCancellable> = []
 
   // Actions can be re-entrantly sent into the store if an action is sent that holds an object
   // which sends an action on deinit. In order to prevent a simultaneous access exception for this
   // case we need to use `withExtendedLifetime` on the buffered actions when clearing them out.
-  func testCaseStudy_ActionReentranceFromClearedBufferCausingDeinitAction() {
+  func testCaseStudy_ActionReentranceFromClearedBufferCausingDeinitAction() async {
     let cancelID = UUID()
 
     struct State: Equatable {}
@@ -87,7 +85,7 @@ final class CompatibilityTests: XCTestCase {
   // In particular, this means that in the implementation of `Store.send` we need to flip
   // `isSending` to false _after_ the store's state mutation is made so that re-entrant actions
   // are buffered rather than immediately handled.
-  func testCaseStudy_ActionReentranceFromStateObservation() {
+  func testCaseStudy_ActionReentranceFromStateObservation() async {
     let store = Store<Int, Int>(
       initialState: 0,
       reducer: Reduce { state, action in

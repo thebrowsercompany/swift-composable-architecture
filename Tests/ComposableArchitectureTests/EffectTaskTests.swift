@@ -42,7 +42,9 @@ final class EffectTaskTests: XCTestCase {
   }
 
   #if DEBUG
-    func testTaskUnhandledFailure() async {
+    func testTaskUnhandledFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       var line: UInt!
       XCTExpectFailure(nil, enabled: nil, strict: nil) {
         $0.compactDescription == """

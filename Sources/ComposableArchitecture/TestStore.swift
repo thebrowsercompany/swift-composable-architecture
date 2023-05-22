@@ -2433,7 +2433,7 @@ private func _XCTExpectFailure(
   strict: Bool = true,
   failingBlock: () -> Void
 ) {
-  // TODO: windows
+
   #if DEBUG
   #if os(macOS)
     guard
@@ -2453,6 +2453,8 @@ private func _XCTExpectFailure(
     )
 
     XCTExpectFailureWithOptionsInBlock(failureReason, options, failingBlock)
+  #else
+    print("Ignoring _XCTExpectFailure call on non-macOS platform.\n\nExpectedFailure: \(failureReason ?? "")")
   #endif
   #endif
 }

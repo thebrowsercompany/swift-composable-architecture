@@ -1,4 +1,4 @@
-#if DEBUG
+#if DEBUG && !os(Windows)
   import Combine
   import ComposableArchitecture
   import XCTest
@@ -185,7 +185,6 @@
         )
         await ViewStore(store, observe: { $0 }).send(.tap).finish()
       }
-    #endif
 
     @MainActor
     func testBindingUnhandledAction() {
@@ -215,5 +214,6 @@
           """
       }
     }
+    #endif
   }
 #endif

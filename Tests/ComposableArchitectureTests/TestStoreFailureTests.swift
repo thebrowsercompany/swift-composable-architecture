@@ -1,4 +1,5 @@
-#if DEBUG
+// no XCTExpectFailure on windows yet
+#if DEBUG && !os(Windows)
   import ComposableArchitecture
   import XCTest
 

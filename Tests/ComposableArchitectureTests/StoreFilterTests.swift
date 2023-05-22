@@ -1,5 +1,5 @@
 #if DEBUG
-  import Combine
+  import OpenCombineShim
   import XCTest
 
   @testable import ComposableArchitecture
@@ -8,7 +8,7 @@
   final class StoreFilterTests: XCTestCase {
     var cancellables: Set<AnyCancellable> = []
 
-    func testFilter() {
+    func testFilter() async {
       let store = Store<Int?, Void>(initialState: nil, reducer: EmptyReducer())
         .filter { state, _ in state != nil }
 
