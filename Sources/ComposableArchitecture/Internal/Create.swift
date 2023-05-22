@@ -1,4 +1,5 @@
 import Foundation
+import OpenCombineShim
 
 // https://github.com/CombineCommunity/CombineExt/blob/master/Sources/Operators/Create.swift
 
@@ -22,7 +23,6 @@ import Foundation
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import OpenCombineShim
 // import Darwin
 
 final class DemandBuffer<S: Subscriber>: @unchecked Sendable {

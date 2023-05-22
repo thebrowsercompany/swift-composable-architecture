@@ -520,9 +520,10 @@ extension EffectPublisher {
       return self
     case (.none, _):
       return other
-    case (.publisher, .publisher), (.run, .publisher), (.publisher, .run):
-      fatalError("TODO: windows - Publishers.Merge doesn't exist in OpenCombine")
-      // return Self(operation: .publisher(Publishers.Merge(self, other).eraseToAnyPublisher()))
+    case (.publisher(let pubA), .publisher(let pubB)):
+      return Self(operation: .publisher(Publishers.Merge(pubA, pubB).eraseToAnyPublisher()))
+    case (.run, .publisher(let publisher)), (.publisher(let publisher), .run):
+      return Self(operation: .publisher(Publishers.Merge(publisher, other).eraseToAnyPublisher()))
     case let (.run(lhsPriority, lhsOperation), .run(rhsPriority, rhsOperation)):
       return Self(
         operation: .run { send in

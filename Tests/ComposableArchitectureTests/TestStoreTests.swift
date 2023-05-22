@@ -1,6 +1,9 @@
-import Combine
+import OpenCombineShim
 import ComposableArchitecture
 import XCTest
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 @MainActor
 final class TestStoreTests: XCTestCase {
@@ -84,7 +87,7 @@ final class TestStoreTests: XCTestCase {
     }
   }
 
-  #if DEBUG
+  #if DEBUG && !os(Windows)
     func testExpectedStateEquality() async {
       struct State: Equatable {
         var count: Int = 0

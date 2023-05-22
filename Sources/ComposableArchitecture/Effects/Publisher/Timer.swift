@@ -89,29 +89,27 @@ extension EffectPublisher where Failure == Never {
   ///   - tolerance: The allowed timing variance when emitting events. Defaults to `nil`, which
   ///     allows any variance.
   ///   - options: Scheduler options passed to the timer. Defaults to `nil`.
-  
-  // TODO: windows
-  // @available(iOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
-  // @available(macOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
-  // @available(tvOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
-  // @available(
-  //   watchOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead."
-  // )
-  // public static func timer<S: Scheduler>(
-  //   id: AnyHashable,
-  //   every interval: S.SchedulerTimeType.Stride,
-  //   tolerance: S.SchedulerTimeType.Stride? = nil,
-  //   on scheduler: S,
-  //   options: S.SchedulerOptions? = nil
-  // ) -> Self where S.SchedulerTimeType == Action {
-  //   Publishers.Timer(every: interval, tolerance: tolerance, scheduler: scheduler, options: options)
-  //     .autoconnect()
-  //     .setFailureType(to: Failure.self)
-  //     .eraseToEffect()
-  //     .cancellable(id: id, cancelInFlight: true)
-  // }
-  
-  // TODO: windows
+
+  @available(iOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
+  @available(macOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
+  @available(tvOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
+  @available(
+    watchOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead."
+  )
+  public static func timer<S: Scheduler>(
+    id: AnyHashable,
+    every interval: S.SchedulerTimeType.Stride,
+    tolerance: S.SchedulerTimeType.Stride? = nil,
+    on scheduler: S,
+    options: S.SchedulerOptions? = nil
+  ) -> Self where S.SchedulerTimeType == Action {
+    Publishers.Timer(every: interval, tolerance: tolerance, scheduler: scheduler, options: options)
+      .autoconnect()
+      .setFailureType(to: Failure.self)
+      .eraseToEffect()
+      .cancellable(id: id, cancelInFlight: true)
+  }
+
   /// Returns an effect that repeatedly emits the current time of the given scheduler on the given
   /// interval.
   ///
@@ -126,26 +124,26 @@ extension EffectPublisher where Failure == Never {
   ///   - tolerance: The allowed timing variance when emitting events. Defaults to `nil`, which
   ///     allows any variance.
   ///   - options: Scheduler options passed to the timer. Defaults to `nil`.
-  
-  // @available(iOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
-  // @available(macOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
-  // @available(tvOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
-  // @available(
-  //   watchOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead."
-  // )
-  // public static func timer<S: Scheduler>(
-  //   id: Any.Type,
-  //   every interval: S.SchedulerTimeType.Stride,
-  //   tolerance: S.SchedulerTimeType.Stride? = nil,
-  //   on scheduler: S,
-  //   options: S.SchedulerOptions? = nil
-  // ) -> Self where S.SchedulerTimeType == Action {
-  //   self.timer(
-  //     id: ObjectIdentifier(id),
-  //     every: interval,
-  //     tolerance: tolerance,
-  //     on: scheduler,
-  //     options: options
-  //   )
-  // }
+
+  @available(iOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
+  @available(macOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
+  @available(tvOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead.")
+  @available(
+    watchOS, deprecated: 9999.0, message: "Use 'clock.timer' in an 'Effect.run', instead."
+  )
+  public static func timer<S: Scheduler>(
+    id: Any.Type,
+    every interval: S.SchedulerTimeType.Stride,
+    tolerance: S.SchedulerTimeType.Stride? = nil,
+    on scheduler: S,
+    options: S.SchedulerOptions? = nil
+  ) -> Self where S.SchedulerTimeType == Action {
+    self.timer(
+      id: ObjectIdentifier(id),
+      every: interval,
+      tolerance: tolerance,
+      on: scheduler,
+      options: options
+    )
+  }
 }

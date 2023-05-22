@@ -17,11 +17,12 @@ let package = Package(
     )
   ],
   dependencies: [
-    // TODO: windows - this didn't build in VSCode initially
-    // .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
     .package(url: "https://github.com/OpenCombine/OpenCombine.git", from: "0.13.0"),
     .package(url: "https://github.com/google/swift-benchmark", from: "0.1.0"),
-    .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "0.8.0"),
+    // currently produces a warning in SPM, but overrrides `Depdendencies`'s version with a version
+    // that supports Windows via OpenCombine(Shims)
+    .package(url: "https://github.com/thebrowsercompany/combine-schedulers", branch: "feature/windows-explorations"),
     .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.14.0"),
     .package(url: "https://github.com/apple/swift-collections", from: "1.0.2"),
     .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.9.1"),
@@ -43,11 +44,11 @@ let package = Package(
         .product(name: "IdentifiedCollections", package: "swift-identified-collections"),
         .product(name: "OrderedCollections", package: "swift-collections"),
         .product(name: "_SwiftUINavigationState",
-          package: "swiftui-navigation", 
+          package: "swiftui-navigation",
           condition: .when(platforms: [.macOS, .iOS, .tvOS, .macCatalyst, .watchOS])),
         .product(name: "XCTestDynamicOverlay", package: "xctest-dynamic-overlay"),
       ],
-      exclude: composableArchitectureExcludes()
+      exclude: osSpecificComposableArchitectureExcludes()
     ),
     .testTarget(
       name: "ComposableArchitectureTests",
@@ -82,7 +83,7 @@ let package = Package(
   ]
 )
 
-func composableArchitectureExcludes() -> [String] {
+func osSpecificComposableArchitectureExcludes() -> [String] {
 #if os(Windows)
     return [
         "SwiftUI",
@@ -96,28 +97,6 @@ func composableArchitectureExcludes() -> [String] {
     ]
 #else
     return []
-#endif
-}
-
-func composableArchitectureTestsExcludes() -> [String] {
-#if os(Windows)
-    return [
-        "TimerTests.swift", // no timer in OpenCombine
-        "DebugTests.swift",
-        "BindingTests.swift", // no SwiftUI
-        "DeprecatedTests.swift",
-        "EffectTests.swift",
-        "EffectThrottleTests.swift",
-        "EffectDebounceTests.swift",
-        "EffectDeferredTests.swift",
-        "RuntimeWarningTests.swift", // no SwiftUI
-        "WithViewStoreAppTest.swift", // no SwiftUI
-        "TestStoreTests.swift",
-    ]
-#else
-    return [
-        "TimerTests.swift",
-    ]
 #endif
 }
 
