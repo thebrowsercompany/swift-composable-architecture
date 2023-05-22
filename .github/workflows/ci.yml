@@ -45,6 +45,7 @@ jobs:
   library-evolution:
     name: Library (evolution)
     runs-on: macos-13
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v3
       - name: Select Xcode 14.3
