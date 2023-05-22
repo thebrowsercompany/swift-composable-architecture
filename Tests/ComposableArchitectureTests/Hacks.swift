@@ -49,5 +49,8 @@ private func warnFail(message: String) -> String {
         ▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄
     """
 }
+#else
+
+func XCTSkipIfWindowsExpectFailure(file: StaticString = #fileID, line: UInt = #line) throws {}
 
 #endif

@@ -51,11 +51,12 @@
       let action = BindingAction.set(\State.$width, 50)
       var dump = ""
       customDump(action, to: &dump)
+
       XCTAssertEqual(
         dump,
         #"""
         BindingAction.set(
-          WritableKeyPath<State, BindingState<Int>>,
+          WritableKeyPath<DebugTests.State, BindingState<Int>>,
           50
         )
         """#

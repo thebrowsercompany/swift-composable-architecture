@@ -194,7 +194,7 @@ final class TestStoreTests: XCTestCase {
         predicateShouldBeCalledExpectation.fulfill()
         return action == .finished
       }
-      wait(for: [predicateShouldBeCalledExpectation], timeout: 0)
+      await fulfillment(of: [predicateShouldBeCalledExpectation], timeout: 0)
 
       XCTExpectFailure {
         store.send(.noop)
