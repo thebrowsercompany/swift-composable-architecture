@@ -54,6 +54,19 @@ jobs:
       - name: Build for library evolution
         run: make build-for-library-evolution
 
+  library-windows:
+    name: Library (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Swift
+        uses: compnerd/gha-setup-swift@main
+        with:
+          branch: swift-5.8-release
+          tag: 5.8-RELEASE
+      - name: Build and test
+        run: swift test
+
   benchmarks:
     runs-on: macos-13
     steps:
