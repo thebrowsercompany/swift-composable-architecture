@@ -1,12 +1,12 @@
 {
   "pins" : [
     {
-      "identity" : "combine-schedulers",
+      "identity" : "opencombine",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/pointfreeco/combine-schedulers",
+      "location" : "https://github.com/OpenCombine/OpenCombine.git",
       "state" : {
-        "revision" : "882ac01eb7ef9e36d4467eb4b1151e74fcef85ab",
-        "version" : "0.9.1"
+        "revision" : "9cf67e363738dbab61b47fb5eaed78d3db31e5ee",
+        "version" : "0.13.0"
       }
     },
     {
@@ -59,8 +59,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/pointfreeco/swift-custom-dump",
       "state" : {
-        "revision" : "de8ba65649e7ee317b9daf27dd5eebf34bd4be57",
-        "version" : "0.9.1"
+        "revision" : "505aa98716275fbd045d8f934fee3337c82ffbd3",
+        "version" : "0.10.3"
       }
     },
     {
@@ -77,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-docc-plugin",
       "state" : {
-        "revision" : "10bc670db657d11bdd561e07de30a9041311b2b1",
-        "version" : "1.1.0"
+        "revision" : "9b1258905c21fc1b97bf03d1b4ca12c4ec4e5fda",
+        "version" : "1.2.0"
       }
     },
     {
@@ -113,8 +113,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/pointfreeco/xctest-dynamic-overlay",
       "state" : {
-        "revision" : "ace21305e0dd3a9e749aef79fef14be79a3b4669",
-        "version" : "0.8.2"
+        "revision" : "4af50b38daf0037cfbab15514a241224c3f62f98",
+        "version" : "0.8.5"
       }
     }
   ],
