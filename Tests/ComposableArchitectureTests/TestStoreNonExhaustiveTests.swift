@@ -24,7 +24,8 @@
       XCTAssertEqual(store.state, 2)
     }
 
-    func testSkipReceivedActions_Strict() async {
+    func testSkipReceivedActions_Strict() async throws {
+      try XCTSkipIfWindowsExpectFailure()
       let store = TestStore(
         initialState: 0,
         reducer: Reduce<Int, Bool> { state, action in
@@ -102,7 +103,9 @@
       await store.skipInFlightEffects(strict: false)
     }
 
-    func testCancelInFlightEffects_Strict() async {
+    func testCancelInFlightEffects_Strict() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       await _withMainSerialExecutor {
         let store = TestStore(
           initialState: 0,
@@ -235,7 +238,9 @@
 
     // Confirms that you don't have to assert on all state changes in a non-exhaustive test store,
     // *but* if you make an incorrect mutation you will still get a failure.
-    func testNonExhaustiveSend_PartialExhaustive_BadAssertion() {
+    func testNonExhaustiveSend_PartialExhaustive_BadAssertion() throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(
         initialState: Counter.State(),
         reducer: Counter()
@@ -323,7 +328,9 @@
 
     // Confirms that if you receive an action in a non-exhaustive test store with a bad assertion
     // you will still get a failure.
-    func testSend_SkipReceivedActions_BadAssertion() {
+    func testSend_SkipReceivedActions_BadAssertion() throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Feature: ReducerProtocol {
         struct State: Equatable {
           var count = 0
@@ -646,7 +653,8 @@
       }
     }
 
-    func testCasePathReceive_WrongAction() async {
+    func testCasePathReceive_WrongAction() async throws {
+      try XCTSkipIfWindowsExpectFailure()
       let store = TestStore(
         initialState: NonExhaustiveReceive.State(),
         reducer: NonExhaustiveReceive()
@@ -666,7 +674,9 @@
       await store.receive(/NonExhaustiveReceive.Action.response2)
     }
 
-    func testCasePathReceive_ReceivedExtraAction() async {
+    func testCasePathReceive_ReceivedExtraAction() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(
         initialState: NonExhaustiveReceive.State(),
         reducer: NonExhaustiveReceive()

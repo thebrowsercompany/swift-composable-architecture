@@ -1,4 +1,4 @@
-import Combine
+import OpenCombineShim
 @_spi(Canary)@_spi(Internals) import ComposableArchitecture
 import XCTest
 
@@ -232,7 +232,9 @@ final class EffectTests: XCTestCase {
     XCTAssertEqual(result, 42)
   }
 
-  #if DEBUG
+  // TODO: can't use `try XCTSkipIfWindowsExpectFailure()` as the "all test file builder"
+  // currently does not seem to support mixed throws/no-throws tests.
+  #if DEBUG && !os(Windows)
     func testUnimplemented() {
       let effect = EffectTask<Never>.unimplemented("unimplemented")
       XCTExpectFailure {

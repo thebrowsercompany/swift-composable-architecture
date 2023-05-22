@@ -66,50 +66,50 @@ final class EffectCancellationTests: XCTestCase {
     XCTAssertEqual(values, [1, 2, 3, 4])
   }
 
-  // func testCancellationAfterDelay() {
-  //   var value: Int?
+  func testCancellationAfterDelay() {
+    var value: Int?
 
-  //   Just(1)
-  //     .delay(for: 0.15, scheduler: DispatchQueue.main)
-  //     .eraseToEffect()
-  //     .cancellable(id: CancelID())
-  //     .sink { value = $0 }
-  //     .store(in: &self.cancellables)
+    Just(1)
+      .delay(for: 0.15, scheduler: DispatchQueue.main)
+      .eraseToEffect()
+      .cancellable(id: CancelID())
+      .sink { value = $0 }
+      .store(in: &self.cancellables)
 
-  //   XCTAssertEqual(value, nil)
+    XCTAssertEqual(value, nil)
 
-  //   DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-  //     EffectTask<Never>.cancel(id: CancelID())
-  //       .sink { _ in }
-  //       .store(in: &self.cancellables)
-  //   }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+      EffectTask<Never>.cancel(id: CancelID())
+        .sink { _ in }
+        .store(in: &self.cancellables)
+    }
 
-  //   _ = XCTWaiter.wait(for: [self.expectation(description: "")], timeout: 1)
-  //   XCTAssertEqual(value, nil)
-  // }
+    _ = XCTWaiter.wait(for: [self.expectation(description: "")], timeout: 1)
+    XCTAssertEqual(value, nil)
+  }
 
-  // func testCancellationAfterDelay_WithTestScheduler() {
-  //   let mainQueue = DispatchQueue.test
-  //   var value: Int?
+  func testCancellationAfterDelay_WithTestScheduler() {
+    let mainQueue = DispatchQueue.test
+    var value: Int?
 
-  //   Just(1)
-  //     .delay(for: 2, scheduler: mainQueue)
-  //     .eraseToEffect()
-  //     .cancellable(id: CancelID())
-  //     .sink { value = $0 }
-  //     .store(in: &self.cancellables)
+    Just(1)
+      .delay(for: 2, scheduler: mainQueue)
+      .eraseToEffect()
+      .cancellable(id: CancelID())
+      .sink { value = $0 }
+      .store(in: &self.cancellables)
 
-  //   XCTAssertEqual(value, nil)
+    XCTAssertEqual(value, nil)
 
-  //   mainQueue.advance(by: 1)
-  //   EffectTask<Never>.cancel(id: CancelID())
-  //     .sink { _ in }
-  //     .store(in: &self.cancellables)
+    mainQueue.advance(by: 1)
+    EffectTask<Never>.cancel(id: CancelID())
+      .sink { _ in }
+      .store(in: &self.cancellables)
 
-  //   mainQueue.run()
+    mainQueue.run()
 
-  //   XCTAssertEqual(value, nil)
-  // }
+    XCTAssertEqual(value, nil)
+  }
 
   func testCancellablesCleanUp_OnComplete() {
     let id = UUID()
@@ -123,23 +123,23 @@ final class EffectCancellationTests: XCTestCase {
     XCTAssertNil(_cancellationCancellables[_CancelToken(id: id)])
   }
 
-  // func testCancellablesCleanUp_OnCancel() {
-  //   let id = UUID()
+  func testCancellablesCleanUp_OnCancel() {
+    let id = UUID()
 
-  //   let mainQueue = DispatchQueue.test
-  //   Just(1)
-  //     .delay(for: 1, scheduler: mainQueue)
-  //     .eraseToEffect()
-  //     .cancellable(id: id)
-  //     .sink(receiveValue: { _ in })
-  //     .store(in: &self.cancellables)
+    let mainQueue = DispatchQueue.test
+    Just(1)
+      .delay(for: 1, scheduler: mainQueue)
+      .eraseToEffect()
+      .cancellable(id: id)
+      .sink(receiveValue: { _ in })
+      .store(in: &self.cancellables)
 
-  //   EffectPublisher<Int, Never>.cancel(id: id)
-  //     .sink(receiveValue: { _ in })
-  //     .store(in: &self.cancellables)
+    EffectPublisher<Int, Never>.cancel(id: id)
+      .sink(receiveValue: { _ in })
+      .store(in: &self.cancellables)
 
-  //   XCTAssertNil(_cancellationCancellables[_CancelToken(id: id)])
-  // }
+    XCTAssertNil(_cancellationCancellables[_CancelToken(id: id)])
+  }
 
   func testDoubleCancellation() {
     var values: [Int] = []
@@ -189,53 +189,57 @@ final class EffectCancellationTests: XCTestCase {
     XCTAssertEqual(values, [1])
   }
 
-  // func testConcurrentCancels() {
-  //   let queues = [
-  //     DispatchQueue.main,
-  //     DispatchQueue.global(qos: .background),
-  //     DispatchQueue.global(qos: .default),
-  //     DispatchQueue.global(qos: .unspecified),
-  //     DispatchQueue.global(qos: .userInitiated),
-  //     DispatchQueue.global(qos: .userInteractive),
-  //     DispatchQueue.global(qos: .utility),
-  //   ]
-  //   let ids = (1...10).map { _ in UUID() }
+  func testConcurrentCancels() {
+    let queues = [
+      DispatchQueue.main,
+      DispatchQueue.global(qos: .background),
+      DispatchQueue.global(qos: .default),
+      DispatchQueue.global(qos: .unspecified),
+      DispatchQueue.global(qos: .userInitiated),
+      DispatchQueue.global(qos: .userInteractive),
+      DispatchQueue.global(qos: .utility),
+    ]
+    let ids = (1...10).map { _ in UUID() }
+    #if os(Windows)
+    let count = 100
+    #else
+    let count = 1_000
+    #endif
+    let effect = EffectPublisher.merge(
+      (1...count).map { idx -> EffectPublisher<Int, Never> in
+        let id = ids[idx % 10]
 
-  //   let effect = EffectPublisher.merge(
-  //     (1...1_000).map { idx -> EffectPublisher<Int, Never> in
-  //       let id = ids[idx % 10]
+        return EffectPublisher.merge(
+          Just(idx)
+            .delay(
+              for: .milliseconds(Int.random(in: 1...100)), scheduler: queues.randomElement()!
+            )
+            .eraseToEffect()
+            .cancellable(id: id),
 
-  //       return EffectPublisher.merge(
-  //         Just(idx)
-  //           .delay(
-  //             for: .milliseconds(Int.random(in: 1...100)), scheduler: queues.randomElement()!
-  //           )
-  //           .eraseToEffect()
-  //           .cancellable(id: id),
+          Just(())
+            .delay(
+              for: .milliseconds(Int.random(in: 1...100)), scheduler: queues.randomElement()!
+            )
+            .flatMap { EffectPublisher.cancel(id: id) }
+            .eraseToEffect()
+        )
+      }
+    )
 
-  //         Just(())
-  //           .delay(
-  //             for: .milliseconds(Int.random(in: 1...100)), scheduler: queues.randomElement()!
-  //           )
-  //           .flatMap { EffectPublisher.cancel(id: id) }
-  //           .eraseToEffect()
-  //       )
-  //     }
-  //   )
+    let expectation = self.expectation(description: "wait")
+    effect
+      .sink(receiveCompletion: { _ in expectation.fulfill() }, receiveValue: { _ in })
+      .store(in: &self.cancellables)
+    self.wait(for: [expectation], timeout: 999)
 
-  //   let expectation = self.expectation(description: "wait")
-  //   effect
-  //     .sink(receiveCompletion: { _ in expectation.fulfill() }, receiveValue: { _ in })
-  //     .store(in: &self.cancellables)
-  //   self.wait(for: [expectation], timeout: 999)
-
-  //   for id in ids {
-  //     XCTAssertNil(
-  //       _cancellationCancellables[_CancelToken(id: id)],
-  //       "cancellationCancellables should not contain id \(id)"
-  //     )
-  //   }
-  // }
+    for id in ids {
+      XCTAssertNil(
+        _cancellationCancellables[_CancelToken(id: id)],
+        "cancellationCancellables should not contain id \(id)"
+      )
+    }
+  }
 
   func testNestedCancels() {
     let id = UUID()
@@ -244,8 +248,14 @@ final class EffectCancellationTests: XCTestCase {
       .eraseToEffect()
       .cancellable(id: id)
 
-    for _ in 1...1_000 {
-      effect = effect.cancellable(id: id)
+    #if os(Windows)
+    let count = 100
+    #else
+    let count = 1_000
+    #endif
+
+    for _ in 1...count {
+        effect = effect.cancellable(id: id)
     }
 
     effect
@@ -257,49 +267,49 @@ final class EffectCancellationTests: XCTestCase {
     XCTAssertNil(_cancellationCancellables[_CancelToken(id: id)])
   }
 
-  // func testSharedId() {
-  //   let mainQueue = DispatchQueue.test
+  func testSharedId() {
+    let mainQueue = DispatchQueue.test
 
-  //   let effect1 = Just(1)
-  //     .delay(for: 1, scheduler: mainQueue)
-  //     .eraseToEffect()
-  //     .cancellable(id: "id")
+    let effect1 = Just(1)
+      .delay(for: 1, scheduler: mainQueue)
+      .eraseToEffect()
+      .cancellable(id: "id")
 
-  //   let effect2 = Just(2)
-  //     .delay(for: 2, scheduler: mainQueue)
-  //     .eraseToEffect()
-  //     .cancellable(id: "id")
+    let effect2 = Just(2)
+      .delay(for: 2, scheduler: mainQueue)
+      .eraseToEffect()
+      .cancellable(id: "id")
 
-  //   var expectedOutput: [Int] = []
-  //   effect1
-  //     .sink { expectedOutput.append($0) }
-  //     .store(in: &cancellables)
-  //   effect2
-  //     .sink { expectedOutput.append($0) }
-  //     .store(in: &cancellables)
+    var expectedOutput: [Int] = []
+    effect1
+      .sink { expectedOutput.append($0) }
+      .store(in: &cancellables)
+    effect2
+      .sink { expectedOutput.append($0) }
+      .store(in: &cancellables)
 
-  //   XCTAssertEqual(expectedOutput, [])
-  //   mainQueue.advance(by: 1)
-  //   XCTAssertEqual(expectedOutput, [1])
-  //   mainQueue.advance(by: 1)
-  //   XCTAssertEqual(expectedOutput, [1, 2])
-  // }
+    XCTAssertEqual(expectedOutput, [])
+    mainQueue.advance(by: 1)
+    XCTAssertEqual(expectedOutput, [1])
+    mainQueue.advance(by: 1)
+    XCTAssertEqual(expectedOutput, [1, 2])
+  }
 
-  // func testImmediateCancellation() {
-  //   let mainQueue = DispatchQueue.test
+  func testImmediateCancellation() {
+    let mainQueue = DispatchQueue.test
 
-  //   var expectedOutput: [Int] = []
-  //   // Don't hold onto cancellable so that it is deallocated immediately.
-  //   _ = Deferred { Just(1) }
-  //     .delay(for: 1, scheduler: mainQueue)
-  //     .eraseToEffect()
-  //     .cancellable(id: "id")
-  //     .sink { expectedOutput.append($0) }
+    var expectedOutput: [Int] = []
+    // Don't hold onto cancellable so that it is deallocated immediately.
+    _ = Deferred { Just(1) }
+      .delay(for: 1, scheduler: mainQueue)
+      .eraseToEffect()
+      .cancellable(id: "id")
+      .sink { expectedOutput.append($0) }
 
-  //   XCTAssertEqual(expectedOutput, [])
-  //   mainQueue.advance(by: 1)
-  //   XCTAssertEqual(expectedOutput, [])
-  // }
+    XCTAssertEqual(expectedOutput, [])
+    mainQueue.advance(by: 1)
+    XCTAssertEqual(expectedOutput, [])
+  }
 
   func testNestedMergeCancellation() {
     let effect = EffectPublisher<Int, Never>.merge(
@@ -317,32 +327,32 @@ final class EffectCancellationTests: XCTestCase {
     XCTAssertEqual(output, [1, 2])
   }
 
-  // func testMultipleCancellations() {
-  //   let mainQueue = DispatchQueue.test
-  //   var output: [AnyHashable] = []
+  func testMultipleCancellations() {
+    let mainQueue = DispatchQueue.test
+    var output: [AnyHashable] = []
 
-  //   struct A: Hashable {}
-  //   struct B: Hashable {}
-  //   struct C: Hashable {}
+    struct A: Hashable {}
+    struct B: Hashable {}
+    struct C: Hashable {}
 
-  //   let ids: [AnyHashable] = [A(), B(), C()]
-  //   let effects = ids.map { id in
-  //     Just(id)
-  //       .delay(for: 1, scheduler: mainQueue)
-  //       .eraseToEffect()
-  //       .cancellable(id: id)
-  //   }
+    let ids: [AnyHashable] = [A(), B(), C()]
+    let effects = ids.map { id in
+      Just(id)
+        .delay(for: 1, scheduler: mainQueue)
+        .eraseToEffect()
+        .cancellable(id: id)
+    }
 
-  //   EffectTask<AnyHashable>.merge(effects)
-  //     .sink { output.append($0) }
-  //     .store(in: &self.cancellables)
+    EffectTask<AnyHashable>.merge(effects)
+      .sink { output.append($0) }
+      .store(in: &self.cancellables)
 
-  //   EffectTask<AnyHashable>
-  //     .cancel(ids: [A(), C()])
-  //     .sink { _ in }
-  //     .store(in: &self.cancellables)
+    EffectTask<AnyHashable>
+      .cancel(ids: [A(), C()])
+      .sink { _ in }
+      .store(in: &self.cancellables)
 
-  //   mainQueue.advance(by: 1)
-  //   XCTAssertEqual(output, [B()])
-  // }
+    mainQueue.advance(by: 1)
+    XCTAssertEqual(output, [B()])
+  }
 }

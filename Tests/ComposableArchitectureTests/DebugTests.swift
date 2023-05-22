@@ -1,5 +1,5 @@
 #if DEBUG
-  import Combine
+  import OpenCombineShim
   import CustomDump
   import XCTest
 
@@ -43,6 +43,7 @@
       )
     }
 
+  #if canImport(SwiftUI)
     func testBindingAction() {
       struct State {
         @BindingState var width = 0
@@ -60,6 +61,7 @@
         """#
       )
     }
+#endif
 
     @MainActor
     func testDebugReducer() async {
