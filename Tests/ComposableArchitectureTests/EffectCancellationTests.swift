@@ -201,7 +201,8 @@ final class EffectCancellationTests: XCTestCase {
     ]
     let ids = (1...10).map { _ in UUID() }
     #if os(Windows)
-    let count = 100
+    // See https://github.com/thebrowsercompany/swift-composable-architecture/pull/45#discussion_r1274175528 for details on this value.
+    let count = 50
     #else
     let count = 1_000
     #endif
