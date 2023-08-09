@@ -1,5 +1,4 @@
 import Foundation
-import OpenCombineShim
 
 // https://github.com/CombineCommunity/CombineExt/blob/master/Sources/Operators/Create.swift
 
@@ -22,26 +21,38 @@ import OpenCombineShim
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
-// import Darwin
+#if canImport(Darwin)
+import Darwin
+#else
+import OpenCombineShim
+#endif
 
 final class DemandBuffer<S: Subscriber>: @unchecked Sendable {
   private var buffer = [S.Input]()
   private let subscriber: S
   private var completion: Subscribers.Completion<S.Failure>?
   private var demandState = Demand()
+  #if canImport(Darwin)
+  private let lock: os_unfair_lock_t
+  #else
   private let lock: NSRecursiveLock
+  #endif
 
   init(subscriber: S) {
     self.subscriber = subscriber
+    #if canImport(Darwin)
+    self.lock = os_unfair_lock_t.allocate(capacity: 1)
+    self.lock.initialize(to: os_unfair_lock())
+    #else
     self.lock = NSRecursiveLock()
-    // self.lock = os_unfair_lock_t.allocate(capacity: 1)
-    // self.lock.initialize(to: os_unfair_lock())
+    #endif
   }
 
   deinit {
-    //self.lock.deinitialize(count: 1)
-    //self.lock.deallocate()
+    #if canImport(Darwin)
+    self.lock.deinitialize(count: 1)
+    self.lock.deallocate()
+    #endif
   }
 
   func buffer(value: S.Input) -> Subscribers.Demand {
