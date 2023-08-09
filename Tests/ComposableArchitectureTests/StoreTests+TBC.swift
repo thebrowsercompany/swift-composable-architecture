@@ -1,4 +1,9 @@
+#if canImport(Combine) 
 import Combine
+#else
+import OpenCombineShim
+#endif
+
 @_spi(Internals) import ComposableArchitecture
 import XCTest
 
