@@ -23,7 +23,13 @@ import Foundation
 // THE SOFTWARE.
 #if canImport(Darwin)
 import Darwin
+#endif
+
+#if canImport(Combine)
+import Combine
 #else
+// This is a bit redundant since OpemCombineShim does this very thing, but doing this let's us
+// ensure that this is as upstreamable as possible.
 import OpenCombineShim
 #endif
 
