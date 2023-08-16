@@ -5,5 +5,5 @@
 @_exported import Dependencies
 @_exported import IdentifiedCollections
 #if canImport(SwiftUI)
-@_exported import _SwiftUINavigationState
+@_exported import SwiftUINavigationCore
 #endif
