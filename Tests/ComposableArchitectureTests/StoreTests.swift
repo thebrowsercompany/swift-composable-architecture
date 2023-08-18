@@ -695,3 +695,76 @@ extension DependencyValues {
     set { self[Count.self] = newValue }
   }
 }
+
+final class ThreadTests: XCTestCase {
+    actor Counter {
+        var count: Int = 0
+        func tryIncrement(to count: Int) {
+            guard count == self.count + 1 else {
+                fatalError()
+            }
+            self.count = count
+        }
+        init() {}
+    }
+
+    class ActionProducer {
+        let subject = PassthroughSubject<Int, Never>()
+        func stream() -> AsyncStream<Int> {
+            return AsyncStream { continuation in
+                DispatchQueue.concurrentPerform(iterations: 999999) { value in
+                    continuation.yield(value)
+                }
+            }
+        }
+
+        init() {}
+    }
+
+    func test() async {
+        struct Reducer: ReducerProtocol {
+            struct State: Equatable {}
+            let counter = Counter()
+
+            enum Action {
+                case runTest
+                case receiveValue(Int)
+                case anotherAction
+            }
+
+            func reduce(into state: inout State, action: Action) -> EffectTask<Action> {
+                switch action {
+                case .runTest:
+                    let source = ActionProducer()
+                    return .run { send in
+                        for await value in source.stream() {
+                            await send(.receiveValue(value))
+                        }
+                    }
+                case .receiveValue:
+                    return .merge(
+                        .run { send in
+                            await send(.anotherAction)
+                        },
+                        Publishers.Sequence(sequence: Array(repeating: 0, count: 100))
+                            .map { _ in Action.anotherAction }
+                            .eraseToEffect()
+                    )
+                case .anotherAction:
+                    return .none
+                }
+            }
+        }
+
+        Task { @MainActor in
+            let store = Store(
+                initialState: Reducer.State(),
+                reducer: Reducer()
+            )
+            let viewStore = ViewStore(store)
+            viewStore.send(.runTest)
+        }
+
+        await Task.megaYield(count: 9999999)
+    }
+}
