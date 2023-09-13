@@ -1,5 +1,4 @@
 import OpenCombineShim
-import OpenCombineSchedulers
 
 #if canImport(Combine)
   typealias CombineSubscription = Combine.Subscription
@@ -24,6 +23,7 @@ import Dependencies
 import Dispatch
 import Foundation
 import OpenCombineDispatch
+import OpenCombineSchedulers
 
 extension DependencyValues {
     public var mainQueue: AnySchedulerOf<DispatchQueue> {
