@@ -1,4 +1,5 @@
 import OpenCombineShim
+import OpenCombineSchedulers
 
 #if canImport(Combine)
   typealias CombineSubscription = Combine.Subscription

@@ -22,15 +22,15 @@ let package = Package(
     .package(url: "https://github.com/google/swift-benchmark", from: "0.1.0"),
     // currently produces a warning in SPM, but overrrides `Depdendencies`'s version with a version
     // that supports Windows via OpenCombine(Shims) (to fix warning, see thebrowsercompany/swift-dependencies below)
-    .package(url: "https://github.com/thebrowsercompany/combine-schedulers", branch: "feature/windows-explorations"),
-    .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "0.14.0"),
+    .package(url: "https://github.com/pointfreeco/combine-schedulers", from: "1.0.0"),
+    .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-collections", from: "1.0.2"),
-    .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.9.1"),
-    // here to also link to https://github.com/thebrowsercompany/combine-schedulers, which supports OpenCombine
-    .package(url: "https://github.com/thebrowsercompany/swift-dependencies", branch: "feature/windows-explorations"),
+    .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0"),
+    .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.0.0"),
     .package(url: "https://github.com/pointfreeco/swift-identified-collections", from: "0.7.0"),
-    .package(url: "https://github.com/pointfreeco/swiftui-navigation", from: "0.7.0"),
-    .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", from: "0.5.0"),
+    .package(url: "https://github.com/pointfreeco/swiftui-navigation", from: "1.0.0"),
+    .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", from: "1.0.0"),
+    .package(url: "https://github.com/thebrowsercompany/open-combine-schedulers", branch: "main")
   ],
   targets: [
     .target(
@@ -38,12 +38,21 @@ let package = Package(
       dependencies: [
         .product(name: "OpenCombineShim", package: "OpenCombine"),
         .product(name: "CasePaths", package: "swift-case-paths"),
-        .product(name: "CombineSchedulers", package: "combine-schedulers"),
+        .product(
+          name: "CombineSchedulers",
+          package: "combine-schedulers",
+          condition: .when(platforms: [.macOS, .iOS, .tvOS, .macCatalyst, .watchOS])
+        ),
+        .product(
+          name: "OpenCombineSchedulers",
+          package: "open-combine-schedulers",
+          condition: .when(platforms: [.windows])
+        ),
         .product(name: "CustomDump", package: "swift-custom-dump"),
         .product(name: "Dependencies", package: "swift-dependencies"),
         .product(name: "IdentifiedCollections", package: "swift-identified-collections"),
         .product(name: "OrderedCollections", package: "swift-collections"),
-        .product(name: "_SwiftUINavigationState",
+        .product(name: "SwiftUINavigationCore",
           package: "swiftui-navigation",
           condition: .when(platforms: [.macOS, .iOS, .tvOS, .macCatalyst, .watchOS])),
         .product(name: "XCTestDynamicOverlay", package: "xctest-dynamic-overlay"),
