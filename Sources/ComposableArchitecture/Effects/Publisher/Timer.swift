@@ -1,5 +1,9 @@
 import CombineSchedulers
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 
 extension EffectPublisher where Failure == Never {
   /// Returns an effect that repeatedly emits the current time of the given scheduler on the given

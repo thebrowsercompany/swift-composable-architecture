@@ -1,6 +1,10 @@
 import Dispatch
 import Foundation
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 
 extension EffectPublisher {
   /// Throttles an effect so that it only publishes one output per given interval.

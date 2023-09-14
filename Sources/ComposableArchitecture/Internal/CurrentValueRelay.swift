@@ -1,5 +1,9 @@
 import Foundation
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 
 final class CurrentValueRelay<Output>: Publisher {
   typealias Failure = Never

@@ -1,4 +1,8 @@
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 
 // @available(iOS, deprecated: 9999.0)
 // @available(macOS, deprecated: 9999.0)

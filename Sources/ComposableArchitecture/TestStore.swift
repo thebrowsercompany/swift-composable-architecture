@@ -1,5 +1,9 @@
 @_spi(Internals) import CasePaths
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 import CustomDump
 import Foundation
 import XCTestDynamicOverlay
