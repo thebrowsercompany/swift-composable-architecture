@@ -2,7 +2,11 @@
 
 import Dispatch
 
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 
 import XCTest
 
