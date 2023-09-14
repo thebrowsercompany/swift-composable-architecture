@@ -1,5 +1,9 @@
 import Foundation
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 
 // https://github.com/CombineCommunity/CombineExt/blob/master/Sources/Operators/Create.swift
 

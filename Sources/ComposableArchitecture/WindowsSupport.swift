@@ -1,4 +1,8 @@
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 
 #if canImport(Combine)
   typealias CombineSubscription = Combine.Subscription

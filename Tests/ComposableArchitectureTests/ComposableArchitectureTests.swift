@@ -1,6 +1,10 @@
 import CombineSchedulers
 import ComposableArchitecture
-import OpenCombineShim
+#if canImport(OpenCombine)
+import OpenCombine
+#else
+import Combine
+#endif
 import XCTest
 
 @MainActor

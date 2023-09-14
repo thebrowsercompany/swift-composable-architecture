@@ -43,7 +43,7 @@ extension Target.Dependency {
 
   static var openCombine: Target.Dependency? {
     #if os(Windows)
-    .product(name: "OpenCombineShim", package: "OpenCombine")
+    .product(name: "OpenCombine", package: "OpenCombine")
     #else
     return nil
     #endif
