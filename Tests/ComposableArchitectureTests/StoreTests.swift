@@ -517,7 +517,7 @@ final class StoreTests: XCTestCase {
     XCTAssertEqual(scopedStore.effectCancellables.count, 0)
   }
 
-#if !os(Windows)
+  #if !os(Windows)
   func testOverrideDependenciesDirectlyOnReducer() {
     struct Counter: ReducerProtocol {
       @Dependency(\.calendar) var calendar
@@ -689,7 +689,7 @@ final class StoreTests: XCTestCase {
     await store.send(.tap)?.value
     XCTAssertEqual(store.state.value.count, testStore.state.count)
   }
-#endif
+  #endif
 }
 
 private struct Count: TestDependencyKey {

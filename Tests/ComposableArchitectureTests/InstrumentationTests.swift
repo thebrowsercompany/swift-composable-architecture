@@ -1,4 +1,9 @@
+#if DEBUG
+#if canImport(OpenCombine)
+import OpenCombine
+#else
 import Combine
+#endif
 import XCTest
 
 @_spi(Internals) @testable import ComposableArchitecture
@@ -389,3 +394,4 @@ final class InstrumentationTests: XCTestCase {
     XCTAssertIdentical(storeCreated, parentStore)
   }
 }
+#endif
