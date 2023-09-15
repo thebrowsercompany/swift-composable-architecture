@@ -172,29 +172,8 @@ extension EffectPublisher where Failure == Never {
           } catch is CancellationError {
             return
           } catch {
-            guard let handler = handler else {
-              // #if os(macOS)
-              // #if DEBUG
-              //   var errorDump = ""
-              //   customDump(error, to: &errorDump, indent: 4)
-              //   runtimeWarn(
-              //     """
-              //     An "EffectTask.task" returned from "\(fileID):\(line)" threw an unhandled error. …
-
-              //     \(errorDump)
-
-              //     All non-cancellation errors must be explicitly handled via the "catch" parameter \
-              //     on "EffectTask.task", or via a "do" block.
-              //     """,
-              //     file: file,
-              //     line: line
-              //   )
-              // #endif
-              // #endif
-              return
-            } catch {
               guard let handler = handler else {
-                #if DEBUG
+                #if os(macOS) && DEBUG
                   var errorDump = ""
                   customDump(error, to: &errorDump, indent: 4)
                   runtimeWarn(
@@ -218,7 +197,6 @@ extension EffectPublisher where Failure == Never {
           }
         }
       )
-    }
   }
 
   /// Wraps an asynchronous unit of work that can emit any number of times in an effect.
@@ -277,25 +255,6 @@ extension EffectPublisher where Failure == Never {
           } catch is CancellationError {
             return
           } catch {
-            guard let handler = handler else {
-              // #if DEBUG
-              //   var errorDump = ""
-              //   customDump(error, to: &errorDump, indent: 4)
-              //   runtimeWarn(
-              //     """
-              //     An "EffectTask.run" returned from "\(fileID):\(line)" threw an unhandled error. …
-
-              //     \(errorDump)
-
-              //     All non-cancellation errors must be explicitly handled via the "catch" parameter \
-              //     on "EffectTask.run", or via a "do" block.
-              //     """,
-              //     file: file,
-              //     line: line
-              //   )
-              // #endif
-              return
-            } catch {
               guard let handler = handler else {
                 #if DEBUG
                   var errorDump = ""
@@ -321,7 +280,6 @@ extension EffectPublisher where Failure == Never {
         }
       )
     }
-  }
 
   /// Creates an effect that executes some work in the real world that doesn't need to feed data
   /// back into the store. If an error is thrown, the effect will complete and the error will be

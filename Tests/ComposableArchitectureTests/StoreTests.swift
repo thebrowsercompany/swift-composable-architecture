@@ -689,6 +689,7 @@ final class StoreTests: XCTestCase {
     await store.send(.tap)?.value
     XCTAssertEqual(store.state.value.count, testStore.state.count)
   }
+#endif
 }
 
 private struct Count: TestDependencyKey {
@@ -696,10 +697,10 @@ private struct Count: TestDependencyKey {
   static let liveValue = Count(value: 0)
   static let testValue = Count(value: 0)
 }
+
 extension DependencyValues {
-  fileprivate var count: Count {
-    get { self[Count.self] }
-    set { self[Count.self] = newValue }
-  }
-#endif
+    fileprivate var count: Count {
+        get { self[Count.self] }
+        set { self[Count.self] = newValue }
+    }
 }

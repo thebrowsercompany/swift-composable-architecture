@@ -172,7 +172,7 @@ final class EffectRunTests: XCTestCase {
     }
 
     func testRunEscapeFailurePublisher() async throws {
-            try XCTSkipIfWindowsExpectFailure()
+      try XCTSkipIfWindowsExpectFailure()
       XCTExpectFailure {
         $0.compactDescription == """
           An action was sent from a completed effect:
