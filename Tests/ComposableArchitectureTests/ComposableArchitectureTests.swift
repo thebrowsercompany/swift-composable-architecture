@@ -86,81 +86,81 @@ final class ComposableArchitectureTests: XCTestCase {
     XCTAssertEqual(values, [1, 42, 1, 1, 42])
   }
 
- func testLongLivingEffects() async {
-   enum Action { case end, incr, start }
+  func testLongLivingEffects() async {
+    enum Action { case end, incr, start }
 
-   let effect = AsyncStream<Void>.streamWithContinuation()
+    let effect = AsyncStream<Void>.streamWithContinuation()
 
-   let reducer = Reduce<Int, Action> { state, action in
-     switch action {
-     case .end:
-       return .fireAndForget {
-         effect.continuation.finish()
-       }
-     case .incr:
-       state += 1
-       return .none
-     case .start:
-       return .run { send in
-         for await _ in effect.stream {
-           await send(.incr)
-         }
-       }
-     }
-   }
+    let reducer = Reduce<Int, Action> { state, action in
+      switch action {
+      case .end:
+        return .fireAndForget {
+          effect.continuation.finish()
+        }
+      case .incr:
+        state += 1
+        return .none
+      case .start:
+        return .run { send in
+          for await _ in effect.stream {
+            await send(.incr)
+          }
+        }
+      }
+    }
 
-   let store = TestStore(initialState: 0, reducer: reducer)
+    let store = TestStore(initialState: 0, reducer: reducer)
 
-   await store.send(.start)
-   await store.send(.incr) { $0 = 1 }
-   effect.continuation.yield()
-   await store.receive(.incr) { $0 = 2 }
-   await store.send(.end)
- }
+    await store.send(.start)
+    await store.send(.incr) { $0 = 1 }
+    effect.continuation.yield()
+    await store.receive(.incr) { $0 = 2 }
+    await store.send(.end)
+  }
 
- func testCancellation() async {
-   await _withMainSerialExecutor {
-     let mainQueue = DispatchQueue.test
+  func testCancellation() async {
+    await _withMainSerialExecutor {
+      let mainQueue = DispatchQueue.test
 
-     enum Action: Equatable {
-       case cancel
-       case incr
-       case response(Int)
-     }
+      enum Action: Equatable {
+        case cancel
+        case incr
+        case response(Int)
+      }
 
-     let reducer = Reduce<Int, Action> { state, action in
-       enum CancelID {}
+      let reducer = Reduce<Int, Action> { state, action in
+        enum CancelID {}
 
-       switch action {
-       case .cancel:
-         return .cancel(id: CancelID.self)
+        switch action {
+        case .cancel:
+          return .cancel(id: CancelID.self)
 
-       case .incr:
-         state += 1
-         return .task { [state] in
-           try await mainQueue.sleep(for: .seconds(1))
-           return .response(state * state)
-         }
-         .cancellable(id: CancelID.self)
+        case .incr:
+          state += 1
+          return .task { [state] in
+            try await mainQueue.sleep(for: .seconds(1))
+            return .response(state * state)
+          }
+          .cancellable(id: CancelID.self)
 
-       case let .response(value):
-         state = value
-         return .none
-       }
-     }
+        case let .response(value):
+          state = value
+          return .none
+        }
+      }
 
-     let store = TestStore(
-       initialState: 0,
-       reducer: reducer
-     )
+      let store = TestStore(
+        initialState: 0,
+        reducer: reducer
+      )
 
-     await store.send(.incr) { $0 = 1 }
-     await mainQueue.advance(by: .seconds(1))
-     await store.receive(.response(1))
+      await store.send(.incr) { $0 = 1 }
+      await mainQueue.advance(by: .seconds(1))
+      await store.receive(.response(1))
 
-     await store.send(.incr) { $0 = 2 }
-     await store.send(.cancel)
-     await store.finish()
-   }
- }
+      await store.send(.incr) { $0 = 2 }
+      await store.send(.cancel)
+      await store.finish()
+    }
+  }
 }
