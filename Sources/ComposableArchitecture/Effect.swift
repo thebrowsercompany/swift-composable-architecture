@@ -37,7 +37,7 @@ import XCTestDynamicOverlay
 /// functions on ``EffectTask``, then threading is automatically handled for you.
 
 #if canImport(SwiftUI)
-  import SwiftUI
+import SwiftUI
 #endif
 
 public struct EffectPublisher<Action, Failure: Error> {
@@ -386,17 +386,17 @@ public struct Send<Action> {
   }
 
   #if canImport(SwiftUI)
-    /// Sends an action back into the system from an effect with animation.
-    ///
-    /// - Parameters:
-    ///   - action: An action.
-    ///   - animation: An animation.
-    public func callAsFunction(_ action: Action, animation: Animation?) {
-      guard !Task.isCancelled else { return }
-      withAnimation(animation) {
-        self(action)
-      }
+  /// Sends an action back into the system from an effect with animation.
+  ///
+  /// - Parameters:
+  ///   - action: An action.
+  ///   - animation: An animation.
+  public func callAsFunction(_ action: Action, animation: Animation?) {
+    guard !Task.isCancelled else { return }
+    withAnimation(animation) {
+      self(action)
     }
+  }
   #endif
 }
 
@@ -483,7 +483,7 @@ extension EffectPublisher {
     case (.none, _):
       return other
     case (.publisher, .publisher), (.run, .publisher), (.publisher, .run):
-        return Self(operation: .publisher(Publishers.Merge(self, other).eraseToAnyPublisher()))
+      return Self(operation: .publisher(Publishers.Merge(self, other).eraseToAnyPublisher()))
     case let (.run(lhsPriority, lhsOperation), .run(rhsPriority, rhsOperation)):
       return Self(
         operation: .run { send in
@@ -564,9 +564,7 @@ extension EffectPublisher {
   /// - Returns: A publisher that uses the provided closure to map elements from the upstream effect
   ///   to new elements that it then publishes.
   @inlinable
-  public
-    func map<T>(_ transform: @escaping (Action) -> T) -> EffectPublisher<T, Failure>
-  {
+  public func map<T>(_ transform: @escaping (Action) -> T) -> EffectPublisher<T, Failure> {
     switch self.operation {
     case .none:
       return .none

@@ -5,7 +5,7 @@ import Combine
 #endif
 
 #if canImport(SwiftUI)
-  import SwiftUI
+import SwiftUI
 #endif
 
 /// A `ViewStore` is an object that can observe state changes and send actions. They are most
@@ -372,7 +372,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       withAnimation(animation) {
         self.send(action)
       }
-    }
+  }
   #endif
 
   /// Sends an action into the store and then suspends while a piece of state is `true`.
@@ -445,7 +445,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   /// - Parameters:
   ///   - action: An action.
   ///   - predicate: A predicate on `ViewState` that determines for how long this method should
-  ///     suspend.
+  ///   suspend.
   @MainActor
   public func send(_ action: ViewAction, while predicate: @escaping (ViewState) -> Bool) async {
     let task = self.send(action)

@@ -20,7 +20,7 @@ final class StoreTests: XCTestCase {
     XCTAssertEqual(store.effectCancellables.count, 0)
   }
 
-#if canImport(Combine)
+  #if canImport(Combine)
   func testCancellableIsRemovedWhenEffectCompletes() {
     let mainQueue = DispatchQueue.test
     let effect = EffectTask<Void>(value: ())
@@ -49,7 +49,7 @@ final class StoreTests: XCTestCase {
 
     XCTAssertEqual(store.effectCancellables.count, 0)
   }
-#endif
+  #endif
 
   func testScopedStoreReceivesUpdatesFromParent() {
     let counterReducer = Reduce<Int, Void>({ state, _ in

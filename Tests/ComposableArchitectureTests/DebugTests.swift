@@ -47,7 +47,7 @@ final class DebugTests: XCTestCase {
     )
   }
 
-#if canImport(SwiftUI)
+  #if canImport(SwiftUI)
   func testBindingAction() {
     struct State {
       @BindingState var width = 0
@@ -66,7 +66,7 @@ final class DebugTests: XCTestCase {
       """#
     )
   }
-#endif
+  #endif
 
   @MainActor
   func testDebugReducer() async {
