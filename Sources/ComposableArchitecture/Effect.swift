@@ -163,17 +163,17 @@ extension EffectPublisher where Failure == Never {
     fileID: StaticString = #fileID,
     line: UInt = #line
   ) -> Self {
-    let dependencies = DependencyValues._current
-    return Self(
-      operation: .run(priority) { send in
-        await DependencyValues.$_current.withValue(dependencies) {
-          do {
-            try await send(operation())
-          } catch is CancellationError {
-            return
-          } catch {
+    withEscapedDependencies { escaped in
+      Self(
+        operation: .run(priority) { send in
+          await escaped.yield {
+            do {
+              try await send(operation())
+            } catch is CancellationError {
+              return
+            } catch {
               guard let handler = handler else {
-                #if os(macOS) && DEBUG
+                #if DEBUG
                   var errorDump = ""
                   customDump(error, to: &errorDump, indent: 4)
                   runtimeWarn(
@@ -197,6 +197,7 @@ extension EffectPublisher where Failure == Never {
           }
         }
       )
+    }
   }
 
   /// Wraps an asynchronous unit of work that can emit any number of times in an effect.
@@ -246,15 +247,15 @@ extension EffectPublisher where Failure == Never {
     fileID: StaticString = #fileID,
     line: UInt = #line
   ) -> Self {
-    let dependencies = DependencyValues._current
-    return Self(
-      operation: .run(priority) { send in
-        await DependencyValues.$_current.withValue(dependencies) {
-          do {
-            try await operation(send)
-          } catch is CancellationError {
-            return
-          } catch {
+    withEscapedDependencies { escaped in
+      Self(
+        operation: .run(priority) { send in
+          await escaped.yield {
+            do {
+              try await operation(send)
+            } catch is CancellationError {
+              return
+            } catch {
               guard let handler = handler else {
                 #if DEBUG
                   var errorDump = ""
@@ -280,6 +281,7 @@ extension EffectPublisher where Failure == Never {
         }
       )
     }
+  }
 
   /// Creates an effect that executes some work in the real world that doesn't need to feed data
   /// back into the store. If an error is thrown, the effect will complete and the error will be

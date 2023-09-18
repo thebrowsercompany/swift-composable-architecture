@@ -2439,7 +2439,7 @@ private func _XCTExpectFailure(
 ) {
 
   #if DEBUG
-  #if os(macOS)
+  #if !os(Windows)
     guard
       let XCTExpectedFailureOptions = NSClassFromString("XCTExpectedFailureOptions")
         as Any as? NSObjectProtocol,
@@ -2458,7 +2458,7 @@ private func _XCTExpectFailure(
 
     XCTExpectFailureWithOptionsInBlock(failureReason, options, failingBlock)
   #else
-    print("Ignoring _XCTExpectFailure call on non-macOS platform.\n\nExpectedFailure: \(failureReason ?? "")")
+    print("Ignoring _XCTExpectFailure call on Windows platform.\n\nExpectedFailure: \(failureReason ?? "")")
   #endif
   #endif
 }
