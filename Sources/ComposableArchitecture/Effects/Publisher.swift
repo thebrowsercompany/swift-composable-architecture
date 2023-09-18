@@ -50,11 +50,14 @@ extension EffectPublisher: Publisher {
               runtimeWarn(
                   """
                   An action was sent from a completed effect:
+
                     Action:
                       \(debugCaseOutput($0))
+
                   Avoid sending actions using the 'send' argument from 'EffectTask.run' after \
                   the effect has completed. This can happen if you escape the 'send' argument in \
                   an unstructured context.
+
                   To fix this, make sure that your 'run' closure does not return until you're \
                   done calling 'send'.
                   """
