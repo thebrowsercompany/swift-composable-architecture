@@ -373,6 +373,20 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
         self.send(action)
       }
   }
+
+  /// Sends an action to the store with a given transaction.
+  ///
+  /// See ``ViewStore/send(_:)`` for more info.
+  ///
+  /// - Parameters:
+  ///   - action: An action.
+  ///   - transaction: A transaction.
+  @discardableResult
+  public func send(_ action: ViewAction, transaction: Transaction) -> ViewStoreTask {
+    withTransaction(transaction) {
+      self.send(action)
+    }
+  }
   #endif
 
   /// Sends an action into the store and then suspends while a piece of state is `true`.
@@ -445,7 +459,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   /// - Parameters:
   ///   - action: An action.
   ///   - predicate: A predicate on `ViewState` that determines for how long this method should
-  ///   suspend.
+  ///     suspend.
   @MainActor
   public func send(_ action: ViewAction, while predicate: @escaping (ViewState) -> Bool) async {
     let task = self.send(action)
@@ -464,7 +478,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   ///   - action: An action.
   ///   - animation: The animation to perform when the action is sent.
   ///   - predicate: A predicate on `ViewState` that determines for how long this method should
-  ///                suspend.
+  ///     suspend.
   @MainActor
   public func send(
     _ action: ViewAction,

@@ -93,6 +93,12 @@ extension BindingState: CustomDebugStringConvertible where Value: CustomDebugStr
 
 extension BindingState: Sendable where Value: Sendable {}
 
+/// An action type that exposes a `binding` case that holds a ``BindingAction``.
+///
+/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
+/// associated with mutating multiple fields in state.
+///
+/// Read <doc:Bindings> for more information.
 public protocol BindableAction {
   /// The root state type that contains bindable fields.
   associatedtype State

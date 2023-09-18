@@ -699,8 +699,8 @@ private struct Count: TestDependencyKey {
 }
 
 extension DependencyValues {
-    fileprivate var count: Count {
-        get { self[Count.self] }
-        set { self[Count.self] = newValue }
-    }
+  fileprivate var count: Count {
+    get { self[Count.self] }
+    set { self[Count.self] = newValue }
+  }
 }
