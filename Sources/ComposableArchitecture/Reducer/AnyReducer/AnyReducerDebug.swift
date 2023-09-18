@@ -231,13 +231,6 @@ extension AnyReducer {
 
 /// Determines how the string description of an action should be printed when using the
 /// ``AnyReducer/debug(_:state:action:actionFormat:environment:)`` higher-order reducer.
-
-/// The API that used this type has been soft-deprecated in favor of
-/// ``ReducerProtocol/debug()`` Read <doc:MigratingToTheReducerProtocol> for more
-/// information.
-///
-/// An environment for debug-printing reducers.
-
 @available(
   iOS,
   deprecated: 9999.0,
@@ -294,15 +287,11 @@ public enum ActionFormat: Sendable {
   case prettyPrint
 }
 
-/// Determines how the string description of an action should be printed when using the
-/// ``AnyReducer/debug(_:state:action:actionFormat:environment:)`` higher-order reducer.
-
 /// The API that used this type has been soft-deprecated in favor of
 /// ``ReducerProtocol/debug()`` Read <doc:MigratingToTheReducerProtocol> for more
 /// information.
 ///
 /// An environment for debug-printing reducers.
-
 @available(
   iOS,
   deprecated: 9999.0,
@@ -353,15 +342,6 @@ public struct DebugEnvironment {
     self.init(printer: printer, queue: _queue)
   }
 }
-
-/// Determines how the string description of an action should be printed when using the
-/// ``AnyReducer/debug(_:state:action:actionFormat:environment:)`` higher-order reducer.
-
-/// The API that used this type has been soft-deprecated in favor of
-/// ``ReducerProtocol/debug()`` Read <doc:MigratingToTheReducerProtocol> for more
-/// information.
-///
-/// An environment for debug-printing reducers.
 
 private let _queue = DispatchQueue(
   label: "co.pointfree.ComposableArchitecture.DebugEnvironment",

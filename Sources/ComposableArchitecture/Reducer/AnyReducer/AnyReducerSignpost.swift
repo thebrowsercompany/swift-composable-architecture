@@ -31,32 +31,32 @@ extension AnyReducer {
     deprecated: 9999.0,
     message:
       """
-    This API has been soft-deprecated in favor of 'ReducerProtocol.signpost'. Read the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
-    """
+      This API has been soft-deprecated in favor of 'ReducerProtocol.signpost'. Read the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
+      """
   )
   @available(
     macOS,
     deprecated: 9999.0,
     message:
       """
-    This API has been soft-deprecated in favor of 'ReducerProtocol.signpost'. Read the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
-    """
+      This API has been soft-deprecated in favor of 'ReducerProtocol.signpost'. Read the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
+      """
   )
   @available(
     tvOS,
     deprecated: 9999.0,
     message:
       """
-    This API has been soft-deprecated in favor of 'ReducerProtocol.signpost'. Read the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
-    """
+      This API has been soft-deprecated in favor of 'ReducerProtocol.signpost'. Read the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
+      """
   )
   @available(
     watchOS,
     deprecated: 9999.0,
     message:
       """
-    This API has been soft-deprecated in favor of 'ReducerProtocol.signpost'. Read the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
-    """
+      This API has been soft-deprecated in favor of 'ReducerProtocol.signpost'. Read the migration guide for more information: https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/reducerprotocol
+      """
   )
   public func signpost(
     _ prefix: String = "",

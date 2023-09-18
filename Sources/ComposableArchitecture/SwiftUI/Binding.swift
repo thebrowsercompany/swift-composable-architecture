@@ -9,7 +9,6 @@ import SwiftUI
 /// mutable fields on state.
 ///
 /// Read <doc:Bindings> for more information.
-
 @dynamicMemberLookup
 @propertyWrapper
 public struct BindingState<Value> {
@@ -48,51 +47,9 @@ public struct BindingState<Value> {
   }
 }
 
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
 extension BindingState: Equatable where Value: Equatable {}
 
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
 extension BindingState: Hashable where Value: Hashable {}
-
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
 
 extension BindingState: Decodable where Value: Decodable {
   public init(from decoder: Decoder) throws {
@@ -105,20 +62,6 @@ extension BindingState: Decodable where Value: Decodable {
   }
 }
 
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
 extension BindingState: Encodable where Value: Encodable {
   public func encode(to encoder: Encoder) throws {
     do {
@@ -130,39 +73,11 @@ extension BindingState: Encodable where Value: Encodable {
   }
 }
 
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
 extension BindingState: CustomReflectable {
   public var customMirror: Mirror {
     Mirror(reflecting: self.wrappedValue)
   }
 }
-
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
 
 extension BindingState: CustomDumpRepresentable {
   public var customDumpValue: Any {
@@ -170,55 +85,13 @@ extension BindingState: CustomDumpRepresentable {
   }
 }
 
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
 extension BindingState: CustomDebugStringConvertible where Value: CustomDebugStringConvertible {
   public var debugDescription: String {
     self.wrappedValue.debugDescription
   }
 }
 
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
 extension BindingState: Sendable where Value: Sendable {}
-
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
 
 public protocol BindableAction {
   /// The root state type that contains bindable fields.
@@ -229,20 +102,6 @@ public protocol BindableAction {
   /// - Returns: A binding action.
   static func binding(_ action: BindingAction<State>) -> Self
 }
-
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
 
 extension BindableAction {
   /// Constructs a binding action for the given key path and bindable value.
@@ -257,20 +116,6 @@ extension BindableAction {
     self.binding(.set(keyPath, value))
   }
 }
-
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
 
 extension ViewStore where ViewAction: BindableAction, ViewAction.State == ViewState {
   /// Returns a binding to the resulting bindable state of a given key path.
@@ -304,20 +149,12 @@ extension ViewStore where ViewAction: BindableAction, ViewAction.State == ViewSt
   }
 }
 
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
 /// An action that describes simple mutations to some root state at a writable key path.
 ///
 /// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
 /// boilerplate typically associated with mutating multiple fields in state.
 ///
 /// Read <doc:Bindings> for more information.
-
 public struct BindingAction<Root>: Equatable {
   public let keyPath: PartialKeyPath<Root>
 
@@ -353,20 +190,6 @@ public struct BindingAction<Root>: Equatable {
     lhs.keyPath == rhs.keyPath && lhs.valueIsEqualTo(rhs.value)
   }
 }
-
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
 
 extension BindingAction {
   /// Returns an action that describes simple mutations to some root state at a writable key path
@@ -421,20 +244,6 @@ extension BindingAction {
     )
   }
 }
-
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
 
 extension BindingAction {
   /// Transforms a binding action over some root state to some other type of root state given a
@@ -567,20 +376,6 @@ extension BindingAction {
   }
 }
 
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
 extension BindingAction: CustomDumpReflectable {
   public var customDumpMirror: Mirror {
     Mirror(
@@ -592,20 +387,6 @@ extension BindingAction: CustomDumpReflectable {
     )
   }
 }
-
-/// An action type that exposes a `binding` case that holds a ``BindingAction``.
-///
-/// Used in conjunction with ``BindingState`` to safely eliminate the boilerplate typically
-/// associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
-
-/// An action that describes simple mutations to some root state at a writable key path.
-///
-/// Used in conjunction with ``BindingState`` and ``BindableAction`` to safely eliminate the
-/// boilerplate typically associated with mutating multiple fields in state.
-///
-/// Read <doc:Bindings> for more information.
 
 #if DEBUG
   private final class BindableActionViewStoreDebugger<Value> {

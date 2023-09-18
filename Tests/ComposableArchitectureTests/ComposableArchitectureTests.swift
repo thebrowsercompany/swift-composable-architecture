@@ -53,9 +53,6 @@ final class ComposableArchitectureTests: XCTestCase {
       $0.mainQueue = mainQueue.eraseToAnyScheduler()
     }
 
-  //   let mainQueue = DispatchQueue.test
-  //   store.dependencies.mainQueue = mainQueue.eraseToAnyScheduler()
-
     await store.send(.incrAndSquareLater)
     await mainQueue.advance(by: 1)
     await store.receive(.squareNow) { $0 = 4 }

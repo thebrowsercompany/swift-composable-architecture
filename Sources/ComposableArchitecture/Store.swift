@@ -342,8 +342,8 @@ public final class Store<State, Action> {
     #else
       return (self.scope ?? StoreScope(root: self))
         .rescope(
-          self, 
-          state: toChildState, 
+          self,
+          state: toChildState,
           action: { fromChildAction($1) },
           removeDuplicates: isDuplicate,
           instrumentation: instrumentation,
@@ -698,22 +698,7 @@ public final class Store<State, Action> {
 /// ```swift
 /// let store: StoreOf<Feature>
 /// ```
-
 public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
-
-/// A convenience type alias for referring to a store of a given reducer's domain.
-///
-/// Instead of specifying two generics:
-///
-/// ```swift
-/// let store: Store<Feature.State, Feature.Action>
-/// ```
-///
-/// You can specify a single generic:
-///
-/// ```swift
-/// let store: StoreOf<Feature>
-/// ```
 
 #if swift(>=5.7)
   extension ReducerProtocol {
