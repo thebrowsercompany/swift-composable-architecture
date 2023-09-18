@@ -4,10 +4,23 @@ import OpenCombine
 import Combine
 #endif
 
-// @available(iOS, deprecated: 9999.0)
-// @available(macOS, deprecated: 9999.0)
-// @available(tvOS, deprecated: 9999.0)
-// @available(watchOS, deprecated: 9999.0)
+extension EffectPublisher where Failure == Never {
+  /// Creates an effect from a Combine publisher.
+  ///
+  /// - Parameter createPublisher: The closure to execute when the effect is performed.
+  /// - Returns: An effect wrapping a Combine publisher.
+  public static func publisher<P: Publisher>(_ createPublisher: @escaping () -> P) -> Self
+  where P.Output == Action, P.Failure == Never {
+    Self(
+      operation: .publisher(Deferred(createPublisher: createPublisher).eraseToAnyPublisher())
+    )
+  }
+}
+
+@available(iOS, deprecated: 9999.0)
+@available(macOS, deprecated: 9999.0)
+@available(tvOS, deprecated: 9999.0)
+@available(watchOS, deprecated: 9999.0)
 extension EffectPublisher: Publisher {
   public typealias Output = Action
 
