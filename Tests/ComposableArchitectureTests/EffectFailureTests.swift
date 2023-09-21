@@ -17,8 +17,7 @@
 
       var line: UInt!
       XCTExpectFailure {
-        $0.compactDescription
-          == """
+        $0.compactDescription == """
           An "EffectTask.task" returned from "\(#fileID):\(line+1)" threw an unhandled error. …
 
               EffectFailureTests.Unexpected()
@@ -43,8 +42,7 @@
 
       var line: UInt!
       XCTExpectFailure {
-        $0.compactDescription
-          == """
+        $0.compactDescription == """
           An "EffectTask.run" returned from "\(#fileID):\(line+1)" threw an unhandled error. …
 
               EffectFailureTests.Unexpected()
