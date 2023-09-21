@@ -1,4 +1,3 @@
-#if DEBUG
 #if canImport(OpenCombine)
 import OpenCombine
 #else
@@ -394,4 +393,3 @@ final class InstrumentationTests: XCTestCase {
     XCTAssertIdentical(storeCreated, parentStore)
   }
 }
-#endif

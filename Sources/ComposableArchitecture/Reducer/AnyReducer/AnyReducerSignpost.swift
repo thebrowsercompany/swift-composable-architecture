@@ -1,9 +1,5 @@
-#if canImport(OSLog)
-  #if canImport(OpenCombine)
-import OpenCombine
-#else
+#if canImport(OSLog) && canImport(Combine)
 import Combine
-#endif
 import os.signpost
 
 extension AnyReducer {
