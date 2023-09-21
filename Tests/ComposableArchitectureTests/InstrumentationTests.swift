@@ -1,3 +1,4 @@
+#if DEBUG
 #if canImport(OpenCombine)
 import OpenCombine
 #else
@@ -5,6 +6,8 @@ import Combine
 #endif
 import XCTest
 
+// @testable will not work in RELEASE configurations so
+// these tests are DEBUG only
 @_spi(Internals) @testable import ComposableArchitecture
 
 final class InstrumentationTests: XCTestCase {
@@ -393,3 +396,4 @@ final class InstrumentationTests: XCTestCase {
     XCTAssertIdentical(storeCreated, parentStore)
   }
 }
+#endif
