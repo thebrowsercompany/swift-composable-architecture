@@ -60,7 +60,7 @@ import Combine
         dump,
         #"""
         BindingAction.set(
-          WritableKeyPath<DebugTests.State, BindingState<Int>>,
+          \State.$width,
           50
         )
         """#
