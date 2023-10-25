@@ -9,28 +9,11 @@ import SwiftUI
 ///
 /// ```swift
 /// IfLetStore(
-///   store.scope(state: \SearchState.results, action: SearchAction.results),
+///   store.scope(state: \.results, action: { .results($0) })
 /// ) {
 ///   SearchResultsView(store: $0)
 /// } else: {
 ///   Text("Loading search results...")
-/// }
-/// ```
-///
-/// And for showing a sheet when a piece of state becomes non-`nil`:
-///
-/// ```swift
-/// .sheet(
-///   isPresented: viewStore.binding(
-///     get: \.isGameActive,
-///     send: { $0 ? .startButtonTapped : .detailDismissed }
-///   )
-/// ) {
-///   IfLetStore(
-///     self.store.scope(state: \.detail, action: AppAction.detail)
-///   ) {
-///     DetailView(store: $0)
-///   }
 /// }
 /// ```
 ///
@@ -48,21 +31,29 @@ public struct IfLetStore<State, Action, Content: View>: View {
   ///   - elseContent: A view that is only visible when the optional state is `nil`.
   public init<IfContent, ElseContent>(
     _ store: Store<State?, Action>,
-    @ViewBuilder then ifContent: @escaping (Store<State, Action>) -> IfContent,
+    @ViewBuilder then ifContent: @escaping (_ store: Store<State, Action>) -> IfContent,
     @ViewBuilder else elseContent: () -> ElseContent
   ) where Content == _ConditionalContent<IfContent, ElseContent> {
+    let store = store.scope(
+      state: { $0 },
+      id: nil,
+      action: { $1 },
+      isInvalid: { $0 == nil },
+      removeDuplicates: nil
+    )
     self.store = store
     let elseContent = elseContent()
     self.content = { viewStore in
       if var state = viewStore.state {
         return ViewBuilder.buildEither(
           first: ifContent(
-            store
-              .filter { state, _ in state == nil ? !BindingLocal.isActive : true }
-              .scope {
+            store.scope(
+              state: {
                 state = $0 ?? state
                 return state
-              }
+              },
+              action: { $0 }
+            )
           )
         )
       } else {
@@ -80,18 +71,26 @@ public struct IfLetStore<State, Action, Content: View>: View {
   ///     is visible only when the optional state is non-`nil`.
   public init<IfContent>(
     _ store: Store<State?, Action>,
-    @ViewBuilder then ifContent: @escaping (Store<State, Action>) -> IfContent
+    @ViewBuilder then ifContent: @escaping (_ store: Store<State, Action>) -> IfContent
   ) where Content == IfContent? {
+    let store = store.scope(
+      state: { $0 },
+      id: nil,
+      action: { $1 },
+      isInvalid: { $0 == nil },
+      removeDuplicates: nil
+    )
     self.store = store
     self.content = { viewStore in
       if var state = viewStore.state {
         return ifContent(
-          store
-            .filter { state, _ in state == nil ? !BindingLocal.isActive : true }
-            .scope {
+          store.scope(
+            state: {
               state = $0 ?? state
               return state
-            }
+            },
+            action: { $0 }
+          )
         )
       } else {
         return nil

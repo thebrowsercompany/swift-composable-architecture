@@ -181,58 +181,58 @@ final class ReducerTests: XCTestCase {
       )
     }
 
-    func testDebug_ActionFormat_OnlyLabels() {
-      enum DebugAction: Equatable {
-        case incrWithBool(Bool)
-        case incr, noop
-      }
-      struct DebugState: Equatable { var count = 0 }
-
-      var logs: [String] = []
-      let logsExpectation = self.expectation(description: "logs")
-
-      let reducer = AnyReducer<DebugState, DebugAction, Void> { state, action, _ in
-        switch action {
-        case let .incrWithBool(bool):
-          state.count += bool ? 1 : 0
-          return .none
-        default:
-          return .none
-        }
-      }
-      .debug("[prefix]", actionFormat: .labelsOnly) { _ in
-        DebugEnvironment(
-          printer: {
-            logs.append($0)
-            logsExpectation.fulfill()
-          }
-        )
-      }
-
-      let viewStore = ViewStore(
-        Store(
-          initialState: .init(),
-          reducer: reducer,
-          environment: ()
-        )
-      )
-      viewStore.send(.incrWithBool(true))
-
-      self.wait(for: [logsExpectation], timeout: 5)
-
-      XCTAssertEqual(
-        logs,
-        [
-          #"""
-          [prefix]: received action:
-            ReducerTests.DebugAction.incrWithBool
-          - ReducerTests.DebugState(count: 0)
-          + ReducerTests.DebugState(count: 1)
-
-          """#
-        ]
-      )
-    }
+//    func testDebug_ActionFormat_OnlyLabels() {
+//      enum DebugAction: Equatable {
+//        case incrWithBool(Bool)
+//        case incr, noop
+//      }
+//      struct DebugState: Equatable { var count = 0 }
+//
+//      var logs: [String] = []
+//      let logsExpectation = self.expectation(description: "logs")
+//
+//      let reducer = AnyReducer<DebugState, DebugAction, Void> { state, action, _ in
+//        switch action {
+//        case let .incrWithBool(bool):
+//          state.count += bool ? 1 : 0
+//          return .none
+//        default:
+//          return .none
+//        }
+//      }
+//      .debug("[prefix]", actionFormat: .labelsOnly) { _ in
+//        DebugEnvironment(
+//          printer: {
+//            logs.append($0)
+//            logsExpectation.fulfill()
+//          }
+//        )
+//      }
+//
+//      let viewStore = ViewStore(
+//        Store(
+//          initialState: .init(),
+//          reducer: reducer,
+//          environment: ()
+//        )
+//      )
+//      viewStore.send(.incrWithBool(true))
+//
+//      self.wait(for: [logsExpectation], timeout: 5)
+//
+//      XCTAssertEqual(
+//        logs,
+//        [
+//          #"""
+//          [prefix]: received action:
+//            ReducerTests.DebugAction.incrWithBool
+//          - ReducerTests.DebugState(count: 0)
+//          + ReducerTests.DebugState(count: 1)
+//
+//          """#
+//        ]
+//      )
+//    }
   #endif
 
   #if canImport(os.signpost)

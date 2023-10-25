@@ -528,70 +528,6 @@ extension View {
   }
 }
 
-extension Store {
-  @available(
-    *, deprecated,
-    message:
-      """
-      If you use this method, please open a discussion on GitHub and let us know how: \
-      https://github.com/pointfreeco/swift-composable-architecture/discussions/new
-      """
-  )
-  public func publisherScope<P: Publisher, ChildState, ChildAction>(
-    state toChildState: @escaping (AnyPublisher<State, Never>) -> P,
-    action fromChildAction: @escaping (ChildAction) -> Action
-  ) -> AnyPublisher<Store<ChildState, ChildAction>, Never>
-  where P.Output == ChildState, P.Failure == Never {
-
-    func extractChildState(_ state: State) -> ChildState? {
-      var childState: ChildState?
-      _ = toChildState(Just(state).eraseToAnyPublisher())
-        .sink { childState = $0 }
-      return childState
-    }
-
-    return toChildState(self.state.eraseToAnyPublisher())
-      .map { childState in
-        let childStore = Store<ChildState, ChildAction>(
-          initialState: childState,
-          reducer: .init { childState, childAction, _ in
-            let task = self.send(fromChildAction(childAction))
-            childState = extractChildState(self.state.value) ?? childState
-            if let task = task {
-              return .fireAndForget { await task.cancellableValue }
-            } else {
-              return .none
-            }
-          },
-          environment: ()
-        )
-
-        childStore.parentCancellable = self.state
-          .sink { [weak childStore] state in
-            guard let childStore = childStore else { return }
-            childStore.state.value = extractChildState(state) ?? childStore.state.value
-          }
-        return childStore
-      }
-      .eraseToAnyPublisher()
-  }
-
-  @available(
-    *, deprecated,
-    message:
-      """
-      If you use this method, please open a discussion on GitHub and let us know how: \
-      https://github.com/pointfreeco/swift-composable-architecture/discussions/new
-      """
-  )
-  public func publisherScope<P: Publisher, ChildState>(
-    state toChildState: @escaping (AnyPublisher<State, Never>) -> P
-  ) -> AnyPublisher<Store<ChildState, Action>, Never>
-  where P.Output == ChildState, P.Failure == Never {
-    self.publisherScope(state: toChildState, action: { $0 })
-  }
-}
-
 extension ViewStore where ViewAction: BindableAction, ViewAction.State == ViewState {
   @available(
     *, deprecated,
@@ -771,7 +707,7 @@ extension ForEachStore {
   {
     let data = store.state.value
     self.data = data
-    self.content = WithViewStore(store.scope(state: { $0.map { $0[keyPath: id] } })) { viewStore in
+    self.content = WithViewStore(store.scope(state: { $0.map { $0[keyPath: id] } }, action: { $0 })) { viewStore in
       ForEach(Array(viewStore.state.enumerated()), id: \.element) { index, _ in
         content(
           store.scope(

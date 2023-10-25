@@ -683,7 +683,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
     self.fromScopedAction = fromScopedAction
     self.line = line
     self.reducer = reducer
-    self.store = Store(initialState: initialState, reducer: reducer)
+    self.store = Store(initialState: initialState, reducer: reducer, mainThreadChecksEnabled: false)
     self.timeout = 100 * NSEC_PER_MSEC
     self.toScopedState = toScopedState
     self.dependencies = dependencies
@@ -726,7 +726,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
     self.fromScopedAction = { $0 }
     self.line = line
     self.reducer = reducer
-    self.store = Store(initialState: initialState, reducer: reducer)
+    self.store = Store(initialState: initialState, reducer: reducer, mainThreadChecksEnabled: false)
     self.timeout = 100 * NSEC_PER_MSEC
     self.toScopedState = { $0 }
     self.dependencies = dependencies
@@ -793,7 +793,7 @@ public final class TestStore<State, Action, ScopedState, ScopedAction, Environme
     self.fromScopedAction = { $0 }
     self.line = line
     self.reducer = reducer
-    self.store = Store(initialState: initialState, reducer: reducer)
+    self.store = Store(initialState: initialState, reducer: reducer, mainThreadChecksEnabled: false)
     self.timeout = 100 * NSEC_PER_MSEC
     self.toScopedState = { $0 }
   }
