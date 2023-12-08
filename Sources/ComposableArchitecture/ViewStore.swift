@@ -71,6 +71,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   private let _send: (ViewAction) -> Task<Void, Never>?
   fileprivate let _state: CurrentValueRelay<ViewState>
   private var viewCancellable: AnyCancellable?
+  private let instrumentation: Instrumentation
   #if DEBUG
     private var storeTypeName: String
   #endif
@@ -92,10 +93,18 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   public init<State>(
     _ store: Store<State, ViewAction>,
     observe toViewState: @escaping (_ state: State) -> ViewState,
-    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool
+    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool,
+    file: StaticString = #file,
+    line: UInt = #line
   ) {
-    self._send = { store.send($0, originatingFrom: nil) }
+    self._send = { [instrumentation = store.instrumentation] in
+      let sendCallbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: $0, file: file, line: line).eraseToAny()
+      instrumentation.callback?(sendCallbackInfo, .pre, .viewStoreSend)
+      defer { instrumentation.callback?(sendCallbackInfo, .post, .viewStoreSend) }
+      return store.send($0, originatingFrom: nil, file: file, line: line)
+    }
     self._state = CurrentValueRelay(toViewState(store.stateSubject.value))
+    self.instrumentation = store.instrumentation
     self._isInvalidated = store._isInvalidated
     #if DEBUG
       self.storeTypeName = ComposableArchitecture.storeTypeName(of: store)
@@ -109,6 +118,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
         objectWillChange.send()
         _state.value = $0
       }
+    store.instrumentation.viewStoreCreated?(self as AnyObject, ViewStore<ViewState, ViewAction>.self, nil, file, line)
   }
 
   #if DEBUG
@@ -136,10 +146,18 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
     _ store: Store<State, Action>,
     observe toViewState: @escaping (_ state: State) -> ViewState,
     send fromViewAction: @escaping (_ viewAction: ViewAction) -> Action,
-    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool
+    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool,
+    file: StaticString = #file,
+    line: UInt = #line
   ) {
-    self._send = { store.send(fromViewAction($0), originatingFrom: nil) }
+    self._send = { [instrumentation = store.instrumentation] in
+      let sendCallbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: $0, file: file, line: line).eraseToAny()
+      instrumentation.callback?(sendCallbackInfo, .pre, .viewStoreSend)
+      defer { instrumentation.callback?(sendCallbackInfo, .post, .viewStoreSend) }
+      return store.send(fromViewAction($0), originatingFrom: nil, file: file, line: line)
+    }
     self._state = CurrentValueRelay(toViewState(store.stateSubject.value))
+    self.instrumentation = store.instrumentation
     self._isInvalidated = store._isInvalidated
     #if DEBUG
       self.storeTypeName = ComposableArchitecture.storeTypeName(of: store)
@@ -153,9 +171,50 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
         objectWillChange.send()
         _state.value = $0
       }
+    store.instrumentation.viewStoreCreated?(self as AnyObject, ViewStore<ViewState, ViewAction>.self, nil, file, line)
   }
 
-  init(_ viewStore: ViewStore<ViewState, ViewAction>) {
+  public init(
+    _ store: Store<ViewState, ViewAction>,
+    removeDuplicates isDuplicate: @escaping (ViewState, ViewState) -> Bool,
+    file: StaticString = #file,
+    line: UInt = #line
+  ) {
+    self._send = { [instrumentation = store.instrumentation] in
+      let sendCallbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: $0, file: file, line: line).eraseToAny()
+      instrumentation.callback?(sendCallbackInfo, .pre, .viewStoreSend)
+      defer { instrumentation.callback?(sendCallbackInfo, .post, .viewStoreSend) }
+      return store.send($0, originatingFrom: nil, file: file, line: line)
+    }
+    self._state = CurrentValueRelay(store.stateSubject.value)
+    self.instrumentation = store.instrumentation
+    self._isInvalidated = store._isInvalidated
+    #if DEBUG
+      self.storeTypeName = ComposableArchitecture.storeTypeName(of: store)
+      Logger.shared.log("View\(self.storeTypeName).init")
+    #endif
+    let stateChangeCallbackInfo = Instrumentation.CallbackInfo(storeKind: Self.self, action: nil as ViewAction?, file: file, line: line).eraseToAny()
+    self.viewCancellable = store.stateSubject
+      .removeDuplicates(by: { [instrumentation = store.instrumentation] in
+        instrumentation.callback?(stateChangeCallbackInfo, .pre, .viewStoreDeduplicate)
+        defer { instrumentation.callback?(stateChangeCallbackInfo, .post, .viewStoreDeduplicate) }
+
+        return isDuplicate($0, $1)
+      })
+      .sink { [weak objectWillChange = self.objectWillChange, weak _state = self._state, instrumentation = store.instrumentation] in
+        guard let objectWillChange = objectWillChange, let _state = _state else { return }
+
+        instrumentation.callback?(stateChangeCallbackInfo, .pre, .viewStoreChangeState)
+        defer { instrumentation.callback?(stateChangeCallbackInfo, .post, .viewStoreChangeState) }
+
+        objectWillChange.send()
+        _state.value = $0
+      }
+
+    store.instrumentation.viewStoreCreated?(self as AnyObject, ViewStore<ViewState, ViewAction>.self, nil, file, line)
+  }
+
+  init(_ viewStore: ViewStore<ViewState, ViewAction>, file: StaticString = #file, line: UInt = #line) {
     #if DEBUG
       self.storeTypeName = """
         Store<\
@@ -168,8 +227,10 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
     self._send = viewStore._send
     self._state = viewStore._state
     self._isInvalidated = viewStore._isInvalidated
+    self.instrumentation = viewStore.instrumentation
     self.objectWillChange = viewStore.objectWillChange
     self.viewCancellable = viewStore.viewCancellable
+    self.instrumentation.viewStoreCreated?(self as AnyObject, ViewStore<ViewState, ViewAction>.self, nil, file, line)
   }
 
   /// A publisher that emits when state changes.
@@ -587,9 +648,11 @@ extension ViewStore where ViewState: Equatable {
   ///   changes.
   public convenience init<State>(
     _ store: Store<State, ViewAction>,
-    observe toViewState: @escaping (_ state: State) -> ViewState
+    observe toViewState: @escaping (_ state: State) -> ViewState,
+    file: StaticString = #file,
+    line: UInt = #line
   ) {
-    self.init(store, observe: toViewState, removeDuplicates: ==)
+    self.init(store, observe: toViewState, removeDuplicates: ==, file: file, line: line)
   }
 
   /// Initializes a view store from a store which observes changes to state.
@@ -608,9 +671,74 @@ extension ViewStore where ViewState: Equatable {
   public convenience init<State, Action>(
     _ store: Store<State, Action>,
     observe toViewState: @escaping (_ state: State) -> ViewState,
-    send fromViewAction: @escaping (_ viewAction: ViewAction) -> Action
+    send fromViewAction: @escaping (_ viewAction: ViewAction) -> Action,
+    file: StaticString = #file,
+    line: UInt = #line
   ) {
-    self.init(store, observe: toViewState, send: fromViewAction, removeDuplicates: ==)
+    self.init(store, observe: toViewState, send: fromViewAction, removeDuplicates: ==, file: file, line: line)
+  }
+
+  /// Initializes a view store from a store.
+  ///
+  /// > Warning: This initializer is deprecated. Use
+  /// ``ViewStore/init(_:observe:)`` to make state observation explicit.
+  /// >
+  /// > When using ``ViewStore`` you should take care to observe only the pieces of state that
+  /// your view needs to do its job, especially towards the root of the application. See
+  /// <doc:Performance> for more details.
+  ///
+  /// - Parameters:
+  ///   - store: A store.
+  @available(
+    iOS,
+    deprecated: 9999.0,
+    message:
+      """
+      Use 'init(_:observe:)' to make state observation explicit.
+
+      When using ViewStore you should take care to observe only the pieces of state that your view needs to do its job, especially towards the root of the application. See the performance article for more details:
+
+      https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/performance#View-stores
+      """
+  )
+  @available(
+    macOS,
+    deprecated: 9999.0,
+    message:
+      """
+      Use 'init(_:observe:)' to make state observation explicit.
+
+      When using ViewStore you should take care to observe only the pieces of state that your view needs to do its job, especially towards the root of the application. See the performance article for more details:
+
+      https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/performance#View-stores
+      """
+  )
+  @available(
+    tvOS,
+    deprecated: 9999.0,
+    message:
+      """
+      Use 'init(_:observe:)' to make state observation explicit.
+
+      When using ViewStore you should take care to observe only the pieces of state that your view needs to do its job, especially towards the root of the application. See the performance article for more details:
+
+      https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/performance#View-stores
+      """
+  )
+  @available(
+    watchOS,
+    deprecated: 9999.0,
+    message:
+      """
+      Use 'init(_:observe:)' to make state observation explicit.
+
+      When using ViewStore you should take care to observe only the pieces of state that your view needs to do its job, especially towards the root of the application. See the performance article for more details:
+
+      https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/performance#View-stores
+      """
+  )
+  public convenience init(_ store: Store<ViewState, ViewAction>, file: StaticString = #file, line: UInt = #line) {
+    self.init(store, removeDuplicates: ==, file: file, line: line)
   }
 }
 
