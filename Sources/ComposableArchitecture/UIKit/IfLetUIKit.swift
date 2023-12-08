@@ -47,7 +47,9 @@ extension Store {
   ///   goes from `nil` to non-`nil` and vice versa, so that the caller can react to these changes.
   public func ifLet<Wrapped>(
     then unwrap: @escaping (_ store: Store<Wrapped, Action>) -> Void,
-    else: @escaping () -> Void = {}
+    else: @escaping () -> Void = {},
+    file: StaticString = #file,
+    line: UInt = #line
   ) -> Cancellable where State == Wrapped? {
     return self.state
       .removeDuplicates(by: { ($0 != nil) == ($1 != nil) })
@@ -59,7 +61,9 @@ extension Store {
                 state = $0 ?? state
                 return state
               },
-              action: { $0 }
+              action: { $0 },
+              file: file,
+              line: line
             )
           )
         } else {
