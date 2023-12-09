@@ -404,7 +404,7 @@ public final class Store<State, Action> {
     )
   }
 
-  func scope<ChildState, ChildAction>(
+  public func scope<ChildState, ChildAction>(
     state toChildState: @escaping (State) -> ChildState,
     action fromChildAction: @escaping (ChildAction) -> Action,
     removeDuplicates isDuplicate: ((ChildState, ChildState) -> Bool)?
