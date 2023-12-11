@@ -1,4 +1,8 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 import Foundation
 
 final class CurrentValueRelay<Output>: Publisher {
@@ -32,7 +36,7 @@ final class CurrentValueRelay<Output>: Publisher {
 }
 
 extension CurrentValueRelay {
-  final class Subscription<Downstream: Subscriber>: Combine.Subscription
+  final class Subscription<Downstream: Subscriber>: CombineSubscription
   where Downstream.Input == Output, Downstream.Failure == Failure {
     private var demandBuffer: DemandBuffer<Downstream>?
 

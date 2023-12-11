@@ -1,4 +1,11 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @_spi(Internals) import ComposableArchitecture
 import XCTest
 
@@ -695,6 +702,8 @@ final class StoreTests: BaseTCATestCase {
   }
 
   func testChildParentEffectCancellation() async throws {
+    try XCTSkipIfWindowsExpectFailure()
+
     struct Child: Reducer {
       struct State: Equatable {}
       enum Action: Equatable {

@@ -182,8 +182,10 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
           """
         )
       }
+      return self.content(ViewStore(self.viewStore, file: file, line: line))
+    #else
+      return self.content(ViewStore(self.viewStore, file: #file, line: #line))
     #endif
-    return self.content(ViewStore(self.viewStore, file: file, line: line))
   }
 
   /// Initializes a structure that transforms a ``Store`` into an observable ``ViewStore`` in order

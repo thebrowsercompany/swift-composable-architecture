@@ -1,3 +1,4 @@
+#if canImport(SwiftUI)
 import SwiftUI
 
 /// A reducer that updates bindable state when it receives binding actions.
@@ -71,3 +72,5 @@ where State == ViewAction.State {
     return .none
   }
 }
+
+#endif

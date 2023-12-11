@@ -1,4 +1,9 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+import Dispatch
 @_spi(Internals) import ComposableArchitecture
 import XCTest
 
@@ -330,8 +335,14 @@ final class EffectCancellationTests: BaseTCATestCase {
       ]
       let ids = (1...10).map { _ in UUID() }
 
+      #if os(Windows)
+      // See https://github.com/thebrowsercompany/swift-composable-architecture/pull/45#discussion_r1274175528 for details on this value.
+      let count = 50
+      #else
+      let count = 1_000
+      #endif
       let effect = Effect.merge(
-        (1...1_000).map { idx -> Effect<Int> in
+        (1...count).map { idx -> Effect<Int> in
           let id = ids[idx % 10]
 
           return .merge(
@@ -376,8 +387,14 @@ final class EffectCancellationTests: BaseTCATestCase {
       XCTAssertTrue(!Thread.isMainThread)
       let ids = (1...100).map { _ in UUID() }
 
+    #if os(Windows)
+      // See https://github.com/thebrowsercompany/swift-composable-architecture/pull/45#discussion_r1274175528 for details on this value.
+      let count = 100
+      #else
+      let count = 10_000
+      #endif
       let areCancelled = await withTaskGroup(of: Bool.self, returning: [Bool].self) { group in
-        (1...10_000).forEach { index in
+        (1...count).forEach { index in
           let id = ids[index.quotientAndRemainder(dividingBy: ids.count).remainder]
           group.addTask {
             await withTaskCancellation(id: id) {

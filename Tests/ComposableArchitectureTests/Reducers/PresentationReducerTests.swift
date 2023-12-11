@@ -1,3 +1,5 @@
+#if canImport(SwiftUI)
+
 import ComposableArchitecture
 import XCTest
 
@@ -2542,3 +2544,5 @@ final class PresentationReducerTests: BaseTCATestCase {
     }
   }
 }
+
+#endif
