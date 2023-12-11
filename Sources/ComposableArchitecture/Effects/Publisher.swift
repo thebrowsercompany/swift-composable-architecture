@@ -1,4 +1,8 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 
 extension Effect {
   /// Creates an effect from a Combine publisher.
@@ -32,7 +36,7 @@ public struct _EffectPublisher<Action>: Publisher {
     self.effect = effect
   }
 
-  public func receive<S: Combine.Subscriber>(
+  public func receive<S: CombineSubscriber>(
     subscriber: S
   ) where S.Input == Action, S.Failure == Failure {
     self.publisher.subscribe(subscriber)

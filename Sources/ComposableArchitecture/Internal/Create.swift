@@ -20,25 +20,42 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+#if canImport(Darwin)
 import Darwin
+#endif
+import Foundation
 
 final class DemandBuffer<S: Subscriber>: @unchecked Sendable {
   private var buffer = [S.Input]()
   private let subscriber: S
   private var completion: Subscribers.Completion<S.Failure>?
   private var demandState = Demand()
+  #if canImport(Darwin)
   private let lock: os_unfair_lock_t
+  #else
+  private let lock: NSRecursiveLock
+  #endif
 
   init(subscriber: S) {
     self.subscriber = subscriber
+    #if canImport(Darwin)
     self.lock = os_unfair_lock_t.allocate(capacity: 1)
     self.lock.initialize(to: os_unfair_lock())
+    #else
+    self.lock = NSRecursiveLock()
+    #endif
   }
 
   deinit {
+    #if canImport(Darwin)
     self.lock.deinitialize(count: 1)
     self.lock.deallocate()
+    #endif
   }
 
   func buffer(value: S.Input) -> Subscribers.Demand {
@@ -134,7 +151,7 @@ extension Publishers {
 }
 
 extension Publishers.Create {
-  fileprivate final class Subscription<Downstream: Subscriber>: Combine.Subscription
+  fileprivate final class Subscription<Downstream: Subscriber>: CombineSubscription
   where Downstream.Input == Output, Downstream.Failure == Never {
     private let buffer: DemandBuffer<Downstream>
     private var cancellable: Cancellable?

@@ -1,5 +1,9 @@
 @_spi(Internals) import CasePaths
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 import ConcurrencyExtras
 import CustomDump
 import Foundation
@@ -1860,6 +1864,8 @@ extension TestStore {
   }
 }
 
+#if canImport(SwiftUI)
+
 extension TestStore {
   /// Returns a binding view store for this store.
   ///
@@ -1927,6 +1933,8 @@ extension TestStore where Action: BindableAction, State == Action.State {
     self.bindings(action: .self)
   }
 }
+
+#endif
 
 /// The type returned from ``TestStore/send(_:assert:file:line:)-1ax61`` that represents the
 /// lifecycle of the effect started from sending an action.
@@ -2212,6 +2220,7 @@ private func _XCTExpectFailure(
   failingBlock: () -> Void
 ) {
   #if DEBUG
+  #if !os(Windows)
     guard
       let XCTExpectedFailureOptions = NSClassFromString("XCTExpectedFailureOptions")
         as Any as? NSObjectProtocol,
@@ -2227,8 +2236,10 @@ private func _XCTExpectFailure(
       dlsym(dlopen(nil, RTLD_LAZY), "XCTExpectFailureWithOptionsInBlock"),
       to: (@convention(c) (String?, AnyObject, () -> Void) -> Void).self
     )
-
     XCTExpectFailureWithOptionsInBlock(failureReason, options, failingBlock)
+  #else
+    print("Ignoring _XCTExpectFailure call on Windows platform.\n\nExpectedFailure: \(failureReason ?? "")")
+  #endif
   #endif
 }
 

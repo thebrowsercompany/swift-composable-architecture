@@ -8,6 +8,8 @@ public protocol _EphemeralState {
   static var actionType: Any.Type { get }
 }
 
+#if canImport(SwiftUI)
+
 extension AlertState: _EphemeralState {
   public static var actionType: Any.Type { Action.self }
 }
@@ -16,6 +18,8 @@ extension AlertState: _EphemeralState {
 extension ConfirmationDialogState: _EphemeralState {
   public static var actionType: Any.Type { Action.self }
 }
+
+#endif
 
 @usableFromInline
 func ephemeralType<State>(of state: State) -> (any _EphemeralState.Type)? {

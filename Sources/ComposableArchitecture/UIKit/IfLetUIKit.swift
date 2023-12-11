@@ -1,4 +1,8 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 
 extension Store {
   /// Calls one of two closures depending on whether a store's optional state is `nil` or not, and

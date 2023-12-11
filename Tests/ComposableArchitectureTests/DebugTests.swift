@@ -1,5 +1,9 @@
 #if DEBUG
+  #if canImport(Combine)
   import Combine
+  #elseif canImport(OpenCombine)
+  import OpenCombine
+  #endif
   import CustomDump
   import XCTest
 
@@ -42,6 +46,8 @@
         "DebugTests.Action.screenA(.row(index:, action: .textChanged(query:)))"
       )
     }
+
+    #if canImport(SwiftUI)
 
     func testBindingAction() {
       struct State {
@@ -96,6 +102,8 @@
         )
       #endif
     }
+
+    #endif
 
     @MainActor
     func testDebugReducer() async throws {

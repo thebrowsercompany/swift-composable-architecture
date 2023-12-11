@@ -1,4 +1,8 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 import ComposableArchitecture
 import XCTest
 
@@ -44,7 +48,9 @@ final class EffectRunTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testRunUnhandledFailure() async {
+    func testRunUnhandledFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       var line: UInt!
       XCTExpectFailure(nil, enabled: nil, strict: nil) {
         $0.compactDescription == """
@@ -124,7 +130,9 @@ final class EffectRunTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testRunEscapeFailure() async {
+    func testRunEscapeFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       XCTExpectFailure {
         $0.compactDescription == """
           An action was sent from a completed effect:

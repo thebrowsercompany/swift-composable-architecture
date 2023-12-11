@@ -1,3 +1,4 @@
+#if canImport(OSLog)
 import OSLog
 
 extension Reducer {
@@ -138,6 +139,8 @@ extension Effect {
     }
   }
 }
+
+#endif
 
 @usableFromInline
 func debugCaseOutput(
