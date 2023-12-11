@@ -1,6 +1,12 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 import Foundation
+#if canImport(SwiftUI)
 import SwiftUI
+#endif
 
 /// A store represents the runtime that powers the application. It is the object that you will pass
 /// around to views that need to interact with the application.
@@ -205,6 +211,8 @@ public final class Store<State, Action> {
     .init(rawValue: self.send(action, originatingFrom: nil))
   }
 
+  #if canImport(SwiftUI)
+
   /// Sends an action to the store with a given animation.
   ///
   /// See ``Store/send(_:)`` for more info.
@@ -230,6 +238,8 @@ public final class Store<State, Action> {
       .init(rawValue: self.send(action, originatingFrom: nil))
     }
   }
+
+  #endif
 
   /// Scopes the store to one that exposes child state and actions.
   ///

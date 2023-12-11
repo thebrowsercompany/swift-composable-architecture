@@ -1,5 +1,11 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+#if canImport(SwiftUI)
 import SwiftUI
+#endif
 
 /// A `ViewStore` is an object that can observe state changes and send actions. They are most
 /// commonly used in views, such as SwiftUI views, UIView or UIViewController, but they can be used
@@ -268,6 +274,8 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
     .init(rawValue: self._send(action))
   }
 
+  #if canImport(SwiftUI)
+
   /// Sends an action to the store with a given animation.
   ///
   /// See ``ViewStore/send(_:)`` for more info.
@@ -293,6 +301,8 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       self.send(action)
     }
   }
+
+  #endif
 
   /// Sends an action into the store and then suspends while a piece of state is `true`.
   ///
@@ -378,6 +388,8 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
     }
   }
 
+  #if canImport(SwiftUI)
+
   /// Sends an action into the store and then suspends while a piece of state is `true`.
   ///
   /// See the documentation of ``send(_:while:)`` for more information.
@@ -400,6 +412,8 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       task.cancel()
     }
   }
+
+  #endif
 
   /// Suspends the current task while a predicate on state is `true`.
   ///
@@ -437,6 +451,8 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       }
     }
   }
+
+  #if canImport(SwiftUI)
 
   /// Derives a binding from the store that prevents direct writes to state and instead sends
   /// actions to the store.
@@ -585,6 +601,8 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       }
     }
   }
+
+  #endif
 }
 
 /// A convenience type alias for referring to a view store of a given reducer's domain.
@@ -713,6 +731,14 @@ private struct HashableWrapper<Value>: Hashable {
   func hash(into hasher: inout Hasher) {}
 }
 
+#if canImport(SwiftUI)
 enum BindingLocal {
   @TaskLocal static var isActive = false
 }
+#else 
+// If SwiftUI is not available, we won't have any `Binding`s, so just hard-code to `false`
+struct BindingLocal {
+  static let isActive = false
+  private init() {}
+}
+#endif

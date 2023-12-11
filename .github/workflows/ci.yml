@@ -30,6 +30,19 @@ jobs:
       - name: Run ${{ matrix.config }} tests
         run: make CONFIG=${{ matrix.config }} test-library
 
+  library-windows:
+    name: Library (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Swift
+        uses: compnerd/gha-setup-swift@main
+        with:
+          branch: swift-5.8-release
+          tag: 5.8-RELEASE
+      - name: Build and test
+        run: swift test
+
   library-evolution:
     name: Library (evolution)
     runs-on: macos-13

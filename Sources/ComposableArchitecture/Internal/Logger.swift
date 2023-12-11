@@ -1,11 +1,19 @@
+import Foundation
+#if canImport(Combine)
+import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+#if canImport(OSLog)
 import OSLog
+#endif
 
 @_spi(Logging)
 public final class Logger {
   public static let shared = Logger()
   public var isEnabled = false
   @Published public var logs: [String] = []
-  #if DEBUG
+  #if DEBUG && canImport(OSLog)
     @available(iOS 14, macOS 11, tvOS 14, watchOS 7, *)
     var logger: os.Logger {
       os.Logger(subsystem: "composable-architecture", category: "store-events")
@@ -26,6 +34,11 @@ public final class Logger {
       self.logs = []
     }
   #else
+    #if !canImport(OSLog)
+    public enum OSLogType {
+        case `default`, info, debug, error, fault
+    }
+    #endif
     @inlinable @inline(__always)
     public func log(level: OSLogType = .default, _ string: @autoclosure () -> String) {
     }
