@@ -1,4 +1,11 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @_spi(Internals) import ComposableArchitecture
 import XCTest
 
@@ -706,7 +713,6 @@ final class StoreTests: BaseTCATestCase {
       case task
       case didFinish
     }
-
     var body: some Reducer<State, Action> {
       Reduce { state, action in
         switch action {
@@ -751,6 +757,8 @@ final class StoreTests: BaseTCATestCase {
     }
   }
   func testChildParentEffectCancellation() async throws {
+    try XCTSkipIfWindowsExpectFailure()
+
     let mainQueue = DispatchQueue.test
     let store = Store(
       initialState: Parent_testChildParentEffectCancellation.State(

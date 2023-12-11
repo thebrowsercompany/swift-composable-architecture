@@ -2,7 +2,11 @@
 #if canImport(OpenCombine)
 import OpenCombine
 #else
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 #endif
 import XCTest
 

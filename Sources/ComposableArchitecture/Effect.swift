@@ -1,6 +1,12 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 import Foundation
+#if canImport(SwiftUI)
 import SwiftUI
+#endif
 import XCTestDynamicOverlay
 
 public struct Effect<Action> {
@@ -135,6 +141,8 @@ extension Effect {
     Self(operation: .publisher(Just(action).eraseToAnyPublisher()))
   }
 
+  #if canImport(SwiftUI)
+
   /// Initializes an effect that immediately emits the action passed in.
   ///
   /// > Note: We do not recommend using `Effect.send` to share logic. Instead, limit usage to
@@ -149,6 +157,8 @@ extension Effect {
   public static func send(_ action: Action, animation: Animation? = nil) -> Self {
     .send(action).animation(animation)
   }
+  
+  #endif
 }
 
 /// A type that can send actions back into the system when used from
@@ -195,6 +205,8 @@ public struct Send<Action>: Sendable {
     self.send(action)
   }
 
+  #if canImport(SwiftUI)
+  
   /// Sends an action back into the system from an effect with animation.
   ///
   /// - Parameters:
@@ -215,6 +227,8 @@ public struct Send<Action>: Sendable {
       self(action)
     }
   }
+
+  #endif
 }
 
 // MARK: - Composing Effects

@@ -32,7 +32,9 @@ final class IfCaseLetReducerTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testNilChild() async {
+    func testNilChild() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+      
       struct SomeError: Error, Equatable {}
 
       let store = TestStore(initialState: Result.failure(SomeError())) {

@@ -1,5 +1,9 @@
 #if DEBUG
-  import Combine
+  #if canImport(Combine)
+import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
   import XCTest
 
   @testable import ComposableArchitecture
@@ -8,7 +12,7 @@
   final class StoreFilterTests: BaseTCATestCase {
     var cancellables: Set<AnyCancellable> = []
 
-    func testFilter() {
+    func testFilter() async {
       let store = Store<Int?, Void>(initialState: nil) {}
         .invalidate { $0 != nil }
 

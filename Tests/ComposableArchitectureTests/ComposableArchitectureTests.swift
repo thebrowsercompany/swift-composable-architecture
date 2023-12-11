@@ -1,4 +1,8 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 import CombineSchedulers
 import ComposableArchitecture
 import XCTest
@@ -7,6 +11,7 @@ import XCTest
 final class ComposableArchitectureTests: BaseTCATestCase {
   var cancellables: Set<AnyCancellable> = []
 
+  @MainActor
   func testScheduling() async {
     struct Counter: Reducer {
       typealias State = Int
@@ -69,6 +74,7 @@ final class ComposableArchitectureTests: BaseTCATestCase {
     await store.receive(.squareNow) { $0 = 391876 }
   }
 
+  @MainActor
   func testSimultaneousWorkOrdering() {
     let mainQueue = DispatchQueue.test
 
@@ -85,6 +91,7 @@ final class ComposableArchitectureTests: BaseTCATestCase {
     XCTAssertEqual(values, [1, 42, 1, 1, 42])
   }
 
+  @MainActor
   func testLongLivingEffects() async {
     enum Action { case end, incr, start }
 
@@ -117,6 +124,7 @@ final class ComposableArchitectureTests: BaseTCATestCase {
     await store.send(.end)
   }
 
+  @MainActor
   func testCancellation() async {
     let mainQueue = DispatchQueue.test
 

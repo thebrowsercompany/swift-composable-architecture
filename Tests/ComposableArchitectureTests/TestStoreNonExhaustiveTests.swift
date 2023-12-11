@@ -23,7 +23,9 @@
       XCTAssertEqual(store.state, 2)
     }
 
-    func testSkipReceivedActions_Strict() async {
+    func testSkipReceivedActions_Strict() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(initialState: 0) {
         Reduce<Int, Bool> { state, action in
           if action {
@@ -97,7 +99,9 @@
       await store.skipInFlightEffects(strict: false)
     }
 
-    func testCancelInFlightEffects_Strict() async {
+    func testCancelInFlightEffects_Strict() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(initialState: 0) {
         Reduce<Int, Bool> { _, action in
           .run { _ in }
@@ -219,7 +223,9 @@
 
     // Confirms that you don't have to assert on all state changes in a non-exhaustive test store,
     // *but* if you make an incorrect mutation you will still get a failure.
-    func testNonExhaustiveSend_PartialExhaustive_BadAssertion() async {
+    func testNonExhaustiveSend_PartialExhaustive_BadAssertion() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(initialState: Counter.State()) {
         Counter()
       }
@@ -300,7 +306,9 @@
 
     // Confirms that if you receive an action in a non-exhaustive test store with a bad assertion
     // you will still get a failure.
-    func testSend_SkipReceivedActions_BadAssertion() async {
+    func testSend_SkipReceivedActions_BadAssertion() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct State: Equatable {
         var count = 0
         var isLoggedIn = false
@@ -593,7 +601,9 @@
       }
     }
 
-    func testCasePathReceive_WrongAction() async {
+    func testCasePathReceive_WrongAction() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(initialState: NonExhaustiveReceive.State()) {
         NonExhaustiveReceive()
       }
@@ -612,7 +622,9 @@
       await store.receive(\.response2)
     }
 
-    func testCasePathReceive_ReceivedExtraAction() async {
+    func testCasePathReceive_ReceivedExtraAction() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(initialState: NonExhaustiveReceive.State()) {
         NonExhaustiveReceive()
       }
@@ -630,7 +642,9 @@
       await store.receive(\.response2)
     }
 
-    func testXCTModifyExhaustive() async {
+    func testXCTModifyExhaustive() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct State: Equatable {
         var child: Int? = 0
         var count = 0
@@ -718,7 +732,9 @@
       await store.receive(.response2, timeout: 1_000_000_000)
     }
 
-    func testReceiveNonExhaustiveWithTimeoutMultipleNonMatching() async {
+    func testReceiveNonExhaustiveWithTimeoutMultipleNonMatching() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+      
       struct State: Equatable {}
       enum Action: Equatable { case tap, response1, response2 }
       let store = TestStore(initialState: State()) {
@@ -836,7 +852,9 @@
       XCTAssertEqual(store.state.age, 34)
     }
 
-    func testEffectfulAssertion_NonExhaustiveTestStore_ShowSkippedAssertions() async {
+    func testEffectfulAssertion_NonExhaustiveTestStore_ShowSkippedAssertions() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Model: Equatable {
         let id: UUID
         init() {

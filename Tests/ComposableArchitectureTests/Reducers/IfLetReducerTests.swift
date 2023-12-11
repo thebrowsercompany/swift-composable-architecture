@@ -5,7 +5,9 @@ import XCTest
 @available(*, deprecated, message: "TODO: Update to use case pathable syntax with Swift 5.9")
 final class IfLetReducerTests: BaseTCATestCase {
   #if DEBUG
-    func testNilChild() async {
+    func testNilChild() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+      
       let store = TestStore(initialState: Int?.none) {
         EmptyReducer<Int?, Void>()
           .ifLet(\.self, action: \.self) {}
@@ -209,6 +211,7 @@ final class IfLetReducerTests: BaseTCATestCase {
     }
   }
 
+  #if canImport(SwiftUI)
   func testEphemeralState() async {
     if #available(iOS 16, macOS 13, tvOS 16, watchOS 9, *) {
       struct Parent: Reducer {
@@ -245,6 +248,7 @@ final class IfLetReducerTests: BaseTCATestCase {
       }
     }
   }
+  #endif
 
   func testIdentifiableChild() async {
     struct Feature: Reducer {
@@ -314,6 +318,7 @@ final class IfLetReducerTests: BaseTCATestCase {
     }
   }
 
+  #if canImport(SwiftUI)
   func testEphemeralDismissal() async {
     struct Feature: Reducer {
       struct State: Equatable {
@@ -351,4 +356,5 @@ final class IfLetReducerTests: BaseTCATestCase {
       $0.alert = nil
     }
   }
+  #endif
 }

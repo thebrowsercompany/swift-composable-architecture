@@ -1,5 +1,11 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 @_spi(Internals) import ComposableArchitecture
+
+#if canImport(SwiftUI)
 import SwiftUI
 import XCTest
 
@@ -221,3 +227,5 @@ final class BindableStoreTests: XCTestCase {
     )
   }
 }
+
+#endif

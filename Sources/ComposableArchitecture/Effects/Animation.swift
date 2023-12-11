@@ -1,4 +1,10 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+
+#if canImport(SwiftUI)
 import SwiftUI
 
 extension Effect {
@@ -66,13 +72,13 @@ private struct TransactionPublisher<Upstream: Publisher>: Publisher {
   var upstream: Upstream
   var transaction: Transaction
 
-  func receive<S: Combine.Subscriber>(subscriber: S)
+  func receive<S: CombineSubscriber>(subscriber: S)
   where S.Input == Output, S.Failure == Failure {
     let conduit = Subscriber(downstream: subscriber, transaction: self.transaction)
     self.upstream.receive(subscriber: conduit)
   }
 
-  private final class Subscriber<Downstream: Combine.Subscriber>: Combine.Subscriber {
+  private final class Subscriber<Downstream: CombineSubscriber>: CombineSubscriber {
     typealias Input = Downstream.Input
     typealias Failure = Downstream.Failure
 
@@ -99,3 +105,5 @@ private struct TransactionPublisher<Upstream: Publisher>: Publisher {
     }
   }
 }
+
+#endif

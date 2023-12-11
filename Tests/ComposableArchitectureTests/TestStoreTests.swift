@@ -1,4 +1,11 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import ComposableArchitecture
 import XCTest
 
@@ -76,7 +83,9 @@ final class TestStoreTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testExpectedStateEquality() async {
+    func testExpectedStateEquality() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct State: Equatable {
         var count: Int = 0
         var isChanging: Bool = false
@@ -123,7 +132,9 @@ final class TestStoreTests: BaseTCATestCase {
       }
     }
 
-    func testExpectedStateEqualityMustModify() async {
+    func testExpectedStateEqualityMustModify() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct State: Equatable {
         var count: Int = 0
       }
@@ -157,7 +168,9 @@ final class TestStoreTests: BaseTCATestCase {
       }
     }
 
-    func testReceiveActionMatchingPredicate() async {
+    func testReceiveActionMatchingPredicate() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       enum Action: Equatable {
         case noop, finished
       }
@@ -446,7 +459,9 @@ final class TestStoreTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testAssert_NonExhaustiveTestStore_Failure() async {
+    func testAssert_NonExhaustiveTestStore_Failure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+      
       let store = TestStore(initialState: 0) {
         EmptyReducer<Int, Void>()
       }

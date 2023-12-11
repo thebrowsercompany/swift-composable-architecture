@@ -1,5 +1,9 @@
 @_spi(Reflection) import CasePaths
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 
 /// A property wrapper for state that can be presented.
 ///
