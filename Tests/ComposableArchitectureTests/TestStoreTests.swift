@@ -1,4 +1,11 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import ComposableArchitecture
 import XCTest
 

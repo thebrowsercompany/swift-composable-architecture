@@ -818,6 +818,8 @@ final class StackReducerTests: BaseTCATestCase {
     }
   #endif
 
+  #if !os(Windows)
+  // Windows build fails on type-checking complexity.
   func testChildWithInFlightEffect() async {
     struct Child: Reducer {
       struct State: Equatable {}
@@ -873,6 +875,7 @@ final class StackReducerTests: BaseTCATestCase {
             """
     }
   }
+  #endif
 
   func testMultipleChildEffects() async {
     struct Child: Reducer {

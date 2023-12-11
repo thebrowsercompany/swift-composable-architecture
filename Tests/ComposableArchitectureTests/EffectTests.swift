@@ -1,4 +1,8 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 @_spi(Canary) @_spi(Internals) import ComposableArchitecture
 import XCTest
 
@@ -7,7 +11,7 @@ final class EffectTests: BaseTCATestCase {
   var cancellables: Set<AnyCancellable> = []
   let mainQueue = DispatchQueue.test
 
-  #if (canImport(RegexBuilder) || !os(macOS) && !targetEnvironment(macCatalyst))
+  #if (canImport(RegexBuilder) || !os(macOS) && !targetEnvironment(macCatalyst)) && !os(Windows)
     func testConcatenate() async {
       if #available(iOS 16, macOS 13, tvOS 16, watchOS 9, *) {
         await withMainSerialExecutor {

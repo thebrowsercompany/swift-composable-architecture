@@ -1,5 +1,9 @@
 #if DEBUG
-  import Combine
+  #if canImport(Combine)
+import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
   @_spi(Internals) import ComposableArchitecture
   import XCTest
 
@@ -7,8 +11,9 @@
   final class EffectFailureTests: BaseTCATestCase {
     var cancellables: Set<AnyCancellable> = []
 
-    func testRunUnexpectedThrows() async {
+    func testRunUnexpectedThrows() async throws {
       guard #available(iOS 15, macOS 12, tvOS 15, watchOS 8, *) else { return }
+      try XCTSkipIfWindowsExpectFailure()
 
       var line: UInt!
       XCTExpectFailure {

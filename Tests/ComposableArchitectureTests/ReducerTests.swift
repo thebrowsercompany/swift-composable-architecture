@@ -1,8 +1,15 @@
+#if canImport(Combine)
 import Combine
+#elseif canImport(OpenCombine)
+import OpenCombine
+#endif
 @_spi(Internals) import ComposableArchitecture
 import CustomDump
 import XCTest
+
+#if canImport(OSLog)
 import os.signpost
+#endif
 
 @MainActor
 final class ReducerTests: BaseTCATestCase {
@@ -105,6 +112,8 @@ final class ReducerTests: BaseTCATestCase {
     XCTAssertTrue(second)
   }
 
+  #if canImport(OSLog)
+
   func testDefaultSignpost() async {
     let reducer = EmptyReducer<Int, Void>().signpost(log: .default)
     var n = 0
@@ -116,4 +125,6 @@ final class ReducerTests: BaseTCATestCase {
     var n = 0
     for await _ in reducer.reduce(into: &n, action: ()).actions {}
   }
+
+  #endif
 }

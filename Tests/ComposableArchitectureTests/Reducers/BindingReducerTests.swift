@@ -1,3 +1,5 @@
+#if canImport(SwiftUI)
+
 import ComposableArchitecture
 import XCTest
 
@@ -126,3 +128,5 @@ final class BindingTests: BaseTCATestCase {
     _ = (/Foo.bar).extract(from: .bar(.buzz(true)))
   }
 }
+
+#endif
