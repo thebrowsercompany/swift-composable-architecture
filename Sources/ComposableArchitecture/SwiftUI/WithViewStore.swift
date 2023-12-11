@@ -136,7 +136,7 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
         return previousState
       }
     #endif
-    self.viewStore = ViewStore(store, observe: { $0 }, removeDuplicates: isDuplicate)
+    self.viewStore = ViewStore(store, observe: { $0 }, removeDuplicates: isDuplicate, file: file, line: line)
   }
 
   #if swift(>=5.8)
@@ -183,7 +183,7 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
         )
       }
     #endif
-    return self.content(ViewStore(self.viewStore))
+    return self.content(ViewStore(self.viewStore, file: file, line: line))
   }
 
   /// Initializes a structure that transforms a ``Store`` into an observable ``ViewStore`` in order
