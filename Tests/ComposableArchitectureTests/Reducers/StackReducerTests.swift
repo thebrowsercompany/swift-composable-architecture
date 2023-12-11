@@ -18,7 +18,9 @@ final class StackReducerTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testStackStateSubscriptCase_Unexpected() {
+    func testStackStateSubscriptCase_Unexpected() throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       enum Element: Equatable {
         case int(Int)
         case text(String)
@@ -230,7 +232,9 @@ final class StackReducerTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testDismissReceiveWrongAction() async {
+    func testDismissReceiveWrongAction() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Child: Reducer {
         struct State: Equatable {}
         enum Action: Equatable { case tap }
@@ -734,7 +738,9 @@ final class StackReducerTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testSendActionWithIDThatDoesNotExist() async {
+    func testSendActionWithIDThatDoesNotExist() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Parent: Reducer {
         struct State: Equatable {
           var path = StackState<Int>()
@@ -784,7 +790,9 @@ final class StackReducerTests: BaseTCATestCase {
   #endif
 
   #if DEBUG
-    func testPopIDThatDoesNotExist() async {
+    func testPopIDThatDoesNotExist() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Parent: Reducer {
         struct State: Equatable {
           var path = StackState<Int>()
@@ -818,7 +826,11 @@ final class StackReducerTests: BaseTCATestCase {
     }
   #endif
 
-  func testChildWithInFlightEffect() async {
+  #if !os(Windows)
+  // Windows build fails on type-checking complexity.
+  func testChildWithInFlightEffect() async throws {
+    try XCTSkipIfWindowsExpectFailure()
+
     struct Child: Reducer {
       struct State: Equatable {}
       enum Action { case tap }
@@ -873,6 +885,7 @@ final class StackReducerTests: BaseTCATestCase {
             """
     }
   }
+  #endif
 
   func testMultipleChildEffects() async {
     struct Child: Reducer {
@@ -1024,7 +1037,9 @@ final class StackReducerTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testPushReusedID() async {
+    func testPushReusedID() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Child: Reducer {
         struct State: Equatable {}
         enum Action: Equatable {}
@@ -1068,7 +1083,9 @@ final class StackReducerTests: BaseTCATestCase {
   #endif
 
   #if DEBUG
-    func testPushIDGreaterThanNextGeneration() async {
+    func testPushIDGreaterThanNextGeneration() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Child: Reducer {
         struct State: Equatable {}
         enum Action: Equatable {}
@@ -1109,7 +1126,9 @@ final class StackReducerTests: BaseTCATestCase {
       }
     }
 
-    func testMismatchedIDFailure() async {
+    func testMismatchedIDFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+      
       struct Child: Reducer {
         struct State: Equatable {}
         enum Action: Equatable {}

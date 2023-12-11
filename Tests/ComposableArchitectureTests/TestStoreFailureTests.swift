@@ -4,7 +4,9 @@
 
   @MainActor
   final class TestStoreFailureTests: BaseTCATestCase {
-    func testNoStateChangeFailure() async {
+    func testNoStateChangeFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       enum Action { case first, second }
       let store = TestStore(initialState: 0) {
         Reduce<Int, Action> { state, action in
@@ -36,7 +38,9 @@
       await store.receive(.second) { _ = $0 }
     }
 
-    func testStateChangeFailure() async {
+    func testStateChangeFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct State: Equatable { var count = 0 }
       let store = TestStore(initialState: State()) {
         Reduce<State, Void> { state, action in
@@ -58,7 +62,9 @@
       await store.send(()) { $0.count = 0 }
     }
 
-    func testUnexpectedStateChangeOnSendFailure() async {
+    func testUnexpectedStateChangeOnSendFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct State: Equatable { var count = 0 }
       let store = TestStore(initialState: State()) {
         Reduce<State, Void> { state, action in
@@ -80,7 +86,9 @@
       await store.send(())
     }
 
-    func testUnexpectedStateChangeOnReceiveFailure() async {
+    func testUnexpectedStateChangeOnReceiveFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct State: Equatable { var count = 0 }
       enum Action { case first, second }
       let store = TestStore(initialState: State()) {
@@ -108,7 +116,9 @@
       await store.receive(.second)
     }
 
-    func testReceivedActionAfterDeinit() async {
+    func testReceivedActionAfterDeinit() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       enum Action { case first, second }
       let store = TestStore(initialState: 0) {
         Reduce<Int, Action> { state, action in
@@ -130,7 +140,9 @@
       await store.send(.first)
     }
 
-    func testEffectInFlightAfterDeinit() async {
+    func testEffectInFlightAfterDeinit() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(initialState: 0) {
         Reduce<Int, Void> { state, action in
           .run { _ in try await Task.never() }
@@ -163,7 +175,9 @@
       await store.send(())
     }
 
-    func testSendActionBeforeReceivingFailure() async {
+    func testSendActionBeforeReceivingFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       enum Action { case first, second }
       let store = TestStore(initialState: 0) {
         Reduce<Int, Action> { state, action in
@@ -191,7 +205,9 @@
       await store.receive(.second)
     }
 
-    func testReceiveNonExistentActionFailure() async {
+    func testReceiveNonExistentActionFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       enum Action { case action }
       let store = TestStore(initialState: 0) {
         Reduce<Int, Action> { _, _ in .none }
@@ -207,7 +223,9 @@
       await store.receive(.action)
     }
 
-    func testReceiveUnexpectedActionFailure() async {
+    func testReceiveUnexpectedActionFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       enum Action { case first, second }
       let store = TestStore(initialState: 0) {
         Reduce<Int, Action> { state, action in
@@ -236,7 +254,9 @@
       await store.receive(.first)
     }
 
-    func testModifyClosureThrowsErrorFailure() async {
+    func testModifyClosureThrowsErrorFailure() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       let store = TestStore(initialState: 0) {
         Reduce<Int, Void> { _, _ in .none }
       }
@@ -250,7 +270,9 @@
       }
     }
 
-    func testExpectedStateEqualityMustModify() async {
+    func testExpectedStateEqualityMustModify() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+      
       let store = TestStore(initialState: 0) {
         Reduce<Int, Bool> { state, action in
           switch action {

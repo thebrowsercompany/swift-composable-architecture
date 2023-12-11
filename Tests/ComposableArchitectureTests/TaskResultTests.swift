@@ -3,7 +3,9 @@ import XCTest
 
 final class TaskResultTests: BaseTCATestCase {
   #if DEBUG
-    func testEqualityNonEquatableError() {
+    func testEqualityNonEquatableError() throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Failure: Error {
         let message: String
       }
@@ -26,7 +28,9 @@ final class TaskResultTests: BaseTCATestCase {
       }
     }
 
-    func testEqualityMismatchingError() {
+    func testEqualityMismatchingError() throws {
+      try XCTSkipIfWindowsExpectFailure()
+
       struct Failure1: Error {
         let message: String
       }
@@ -53,7 +57,9 @@ final class TaskResultTests: BaseTCATestCase {
       }
     }
 
-    func testHashabilityNonHashableError() {
+    func testHashabilityNonHashableError() throws {
+      try XCTSkipIfWindowsExpectFailure()
+      
       struct Failure: Error {
         let message: String
       }

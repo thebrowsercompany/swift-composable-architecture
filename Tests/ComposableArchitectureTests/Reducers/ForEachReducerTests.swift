@@ -36,7 +36,9 @@ final class ForEachReducerTests: BaseTCATestCase {
   }
 
   #if DEBUG
-    func testMissingElement() async {
+    func testMissingElement() async throws {
+      try XCTSkipIfWindowsExpectFailure()
+      
       let store = TestStore(initialState: Elements.State()) {
         EmptyReducer<Elements.State, Elements.Action>()
           .forEach(\.rows, action: /Elements.Action.row) {}

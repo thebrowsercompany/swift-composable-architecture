@@ -38,8 +38,8 @@ jobs:
       - name: Install Swift
         uses: compnerd/gha-setup-swift@main
         with:
-          branch: swift-5.8-release
-          tag: 5.8-RELEASE
+          branch: swift-5.9.2-release
+          tag: 5.9.2-RELEASE
       - name: Build and test
         run: swift test
 

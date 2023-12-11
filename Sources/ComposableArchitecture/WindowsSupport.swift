@@ -25,6 +25,7 @@ import Dependencies
 import Dispatch
 import Foundation
 import OpenCombineDispatch
+import OpenCombineFoundation
 import OpenCombineSchedulers
 
 extension DependencyValues {
