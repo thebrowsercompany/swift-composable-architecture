@@ -1,8 +1,14 @@
+#if canImport(OpenCombine)
+import OpenCombine
+#else
 import Combine
+#endif
 import ComposableArchitecture
 import CustomDump
 import XCTest
+#if canImport(os.signpost)
 import os.signpost
+#endif
 
 @MainActor
 final class ReducerTests: XCTestCase {
@@ -153,7 +159,7 @@ final class ReducerTests: XCTestCase {
       await store.send(.incr) { $0.count = 1 }
       await store.send(.noop)
 
-      await fulfillment(of: [logsExpectation], timeout: 5)
+      self.wait(for: [logsExpectation], timeout: 5)
 
       XCTAssertEqual(
         logs,

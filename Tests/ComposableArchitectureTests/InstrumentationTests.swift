@@ -1,5 +1,9 @@
 #if DEBUG
+#if canImport(OpenCombine)
+import OpenCombine
+#else
 import Combine
+#endif
 import XCTest
 
 // @testable will not work in RELEASE configurations so
