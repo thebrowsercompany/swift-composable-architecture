@@ -157,7 +157,9 @@ public final class Store<State, Action> {
     initialState: @autoclosure () -> R.State,
     instrumentation: Instrumentation = .noop,
     @ReducerBuilder<State, Action> reducer: () -> R,
-    withDependencies prepareDependencies: ((inout DependencyValues) -> Void)? = nil
+    withDependencies prepareDependencies: ((inout DependencyValues) -> Void)? = nil,
+    file: StaticString = #file,
+    line: UInt = #line
   ) where R.State == State, R.Action == Action {
     defer { Logger.shared.log("\(typeName(of: self)).init") }
     if let prepareDependencies = prepareDependencies {
@@ -168,14 +170,18 @@ public final class Store<State, Action> {
         initialState: initialState,
         instrumentation: instrumentation,
         reducer: reducer.transformDependency(\.self, transform: prepareDependencies),
-        mainThreadChecksEnabled: true
+        mainThreadChecksEnabled: true,
+        file: file,
+        line: line
       )
     } else {
       self.init(
         initialState: initialState(),
         instrumentation: instrumentation,
         reducer: reducer(),
-        mainThreadChecksEnabled: true
+        mainThreadChecksEnabled: true,
+        file: file,
+        line: line
       )
     }
   }
@@ -392,9 +398,11 @@ public final class Store<State, Action> {
   /// - Returns: A new store with its domain (state and action) transformed.
   public func scope<ChildState, ChildAction>(
     state toChildState: @escaping (_ state: State) -> ChildState,
-    action fromChildAction: @escaping (_ childAction: ChildAction) -> Action
+    action fromChildAction: @escaping (_ childAction: ChildAction) -> Action,
+    file: StaticString = #file,
+    line: UInt = #line
   ) -> Store<ChildState, ChildAction> {
-    self.scope(state: toChildState, action: fromChildAction, removeDuplicates: nil)
+    self.scope(state: toChildState, action: fromChildAction, removeDuplicates: nil, file: file, line: line)
   }
 
   /// Scopes the store to one that exposes child state and actions.
@@ -409,19 +417,25 @@ public final class Store<State, Action> {
   public func scope<ChildState, ChildAction>(
     state toChildState: @escaping (_ state: State) -> PresentationState<ChildState>,
     action fromChildAction: @escaping (_ presentationAction: PresentationAction<ChildAction>) ->
-      Action
+      Action,
+    file: StaticString = #file,
+    line: UInt = #line
   ) -> Store<PresentationState<ChildState>, PresentationAction<ChildAction>> {
     self.scope(
       state: toChildState,
       action: fromChildAction,
-      removeDuplicates: { $0.sharesStorage(with: $1) }
+      removeDuplicates: { $0.sharesStorage(with: $1) },
+      file: file,
+      line: line
     )
   }
 
   public func scope<ChildState, ChildAction>(
     state toChildState: @escaping (State) -> ChildState,
     action fromChildAction: @escaping (ChildAction) -> Action,
-    removeDuplicates isDuplicate: ((ChildState, ChildState) -> Bool)?
+    removeDuplicates isDuplicate: ((ChildState, ChildState) -> Bool)?,
+    file: StaticString = #file,
+    line: UInt = #line
   ) -> Store<ChildState, ChildAction> {
     self.threadCheck(status: .scope)
     return self.reducer.rescope(
@@ -429,18 +443,22 @@ public final class Store<State, Action> {
       state: toChildState,
       action: { fromChildAction($1) },
       removeDuplicates: isDuplicate,
-      instrumentation: instrumentation
+      instrumentation: instrumentation,
+      file: file,
+      line: line
     )
   }
 
-  func invalidate(_ isInvalid: @escaping (State) -> Bool) -> Store {
+  func invalidate(_ isInvalid: @escaping (State) -> Bool, file: StaticString = #file, line: UInt = #line) -> Store {
     self.threadCheck(status: .scope)
     let store: Store = self.reducer.rescope(
       self,
       state: { $0 },
       action: { state, action in isInvalid(state) && BindingLocal.isActive ? nil : action },
       removeDuplicates: { isInvalid($0) && isInvalid($1) },
-      instrumentation: instrumentation
+      instrumentation: instrumentation,
+      file: file,
+      line: line
     )
     store._isInvalidated = { self._isInvalidated() || isInvalid(self.state.value) }
     return store
@@ -846,7 +864,9 @@ extension ScopedReducer: AnyScopedReducer {
       instrumentation: instrumentation,
       reducer: reducer,
       parentStore: store,
-      mainThreadChecksEnabled: true
+      mainThreadChecksEnabled: true,
+      file: file,
+      line: line
     )
     childStore._isInvalidated = store._isInvalidated
     childStore.parentCancellable = store.state

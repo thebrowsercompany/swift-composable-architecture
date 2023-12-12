@@ -111,9 +111,9 @@ import SwiftUI
 /// ```
 public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
   private let content: (ViewStore<ViewState, ViewAction>) -> Content
+  private let file: StaticString
+  private let line: UInt
   #if DEBUG
-    private let file: StaticString
-    private let line: UInt
     private var prefix: String?
     private var previousState: (ViewState) -> ViewState?
   #endif
@@ -127,9 +127,9 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
     line: UInt = #line
   ) {
     self.content = content
+    self.file = file
+    self.line = line
     #if DEBUG
-      self.file = file
-      self.line = line
       var previousState: ViewState? = nil
       self.previousState = { currentState in
         defer { previousState = currentState }
@@ -182,10 +182,8 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
           """
         )
       }
-      return self.content(ViewStore(self.viewStore, file: file, line: line))
-    #else
-      return self.content(ViewStore(self.viewStore, file: #file, line: #line))
     #endif
+      return self.content(ViewStore(self.viewStore, file: file, line: line))
   }
 
   /// Initializes a structure that transforms a ``Store`` into an observable ``ViewStore`` in order

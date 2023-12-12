@@ -635,9 +635,11 @@ extension ViewStore where ViewState: Equatable {
   ///   changes.
   public convenience init<State>(
     _ store: Store<State, ViewAction>,
-    observe toViewState: @escaping (_ state: State) -> ViewState
+    observe toViewState: @escaping (_ state: State) -> ViewState,
+    file: StaticString = #file,
+    line: UInt = #line
   ) {
-    self.init(store, observe: toViewState, removeDuplicates: ==)
+    self.init(store, observe: toViewState, removeDuplicates: ==, file: file, line: line)
   }
 
   /// Initializes a view store from a store which observes changes to state.
@@ -656,9 +658,11 @@ extension ViewStore where ViewState: Equatable {
   public convenience init<State, Action>(
     _ store: Store<State, Action>,
     observe toViewState: @escaping (_ state: State) -> ViewState,
-    send fromViewAction: @escaping (_ viewAction: ViewAction) -> Action
+    send fromViewAction: @escaping (_ viewAction: ViewAction) -> Action,
+    file: StaticString = #file,
+    line: UInt = #line
   ) {
-    self.init(store, observe: toViewState, send: fromViewAction, removeDuplicates: ==)
+    self.init(store, observe: toViewState, send: fromViewAction, removeDuplicates: ==, file: file, line: line)
   }
 
   /// Initializes a view store from a store.
