@@ -270,9 +270,11 @@ public class CancellablesCollection {
     id: ID,
     path: NavigationIDPath
   ) {
-    let cancelID = _CancelID(id: id, navigationIDPath: path)
-    self.storage[cancelID]?.forEach { $0.cancel() }
-    self.storage[cancelID] = nil
+    for navigationIDPath in path.prefixes {
+      let cancelID = _CancelID(id: id, navigationIDPath: navigationIDPath)
+      self.storage[cancelID]?.forEach { $0.cancel() }
+      self.storage[cancelID] = nil
+    }
   }
 
   func exists<ID: Hashable>(
