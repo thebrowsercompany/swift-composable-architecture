@@ -37,8 +37,16 @@ extension Effect {
   ///   - cancelInFlight: Determines if any in-flight effect with the same identifier should be
   ///     canceled before starting this new one.
   /// - Returns: A new effect that is capable of being canceled by an identifier.
-  public func cancellable<ID: Hashable>(id: ID, cancelInFlight: Bool = false) -> Self {
-    @Dependency(\.navigationIDPath) var navigationIDPath
+  public func cancellable<ID: Hashable>(
+    id: ID,
+    cancelInFlight: Bool = false,
+    ignoreNavigationIDPath: Bool = true
+  ) -> Self {
+
+    let navigationIDPath = {
+      @Dependency(\.navigationIDPath) var navigationIDPath
+      return ignoreNavigationIDPath ? NavigationIDPath() : navigationIDPath
+    }()
 
     switch self.operation {
     case .none:
@@ -105,9 +113,17 @@ extension Effect {
   /// - Parameter id: An effect identifier.
   /// - Returns: A new effect that will cancel any currently in-flight effect with the given
   ///   identifier.
-  public static func cancel<ID: Hashable>(id: ID) -> Self {
+  public static func cancel<ID: Hashable>(
+    id: ID,
+    ignoreNavigationIDPath: Bool = true
+  ) -> Self {
     let dependencies = DependencyValues._current
-    @Dependency(\.navigationIDPath) var navigationIDPath
+
+    let navigationIDPath = {
+      @Dependency(\.navigationIDPath) var navigationIDPath
+      return ignoreNavigationIDPath ? NavigationIDPath() : navigationIDPath
+    }()
+
     // NB: Ideally we'd return a `Deferred` wrapping an `Empty(completeImmediately: true)`, but
     //     due to a bug in iOS 13.2 that publisher will never complete. The bug was fixed in
     //     iOS 13.3, but to remain compatible with iOS 13.2 and higher we need to do a little
@@ -169,9 +185,14 @@ extension Effect {
 public func withTaskCancellation<ID: Hashable, T: Sendable>(
   id: ID,
   cancelInFlight: Bool = false,
+  ignoreNavigationIDPath: Bool = true,
   operation: @Sendable @escaping () async throws -> T
 ) async rethrows -> T {
-  @Dependency(\.navigationIDPath) var navigationIDPath
+
+  let navigationIDPath = {
+    @Dependency(\.navigationIDPath) var navigationIDPath
+    return ignoreNavigationIDPath ? NavigationIDPath() : navigationIDPath
+  }()
 
   let (cancellable, task) = _cancellablesLock.sync { () -> (AnyCancellable, Task<T, Error>) in
     if cancelInFlight {
@@ -198,8 +219,12 @@ extension Task where Success == Never, Failure == Never {
   /// Cancel any currently in-flight operation with the given identifier.
   ///
   /// - Parameter id: An identifier.
-  public static func cancel<ID: Hashable>(id: ID) {
-    @Dependency(\.navigationIDPath) var navigationIDPath
+  public static func cancel<ID: Hashable>(id: ID, ignoreNavigationIDPath: Bool = true) {
+    
+    let navigationIDPath = {
+      @Dependency(\.navigationIDPath) var navigationIDPath
+      return ignoreNavigationIDPath ? NavigationIDPath() : navigationIDPath
+    }()
 
     return _cancellablesLock.sync {
       _cancellationCancellables.cancel(id: id, path: navigationIDPath)
