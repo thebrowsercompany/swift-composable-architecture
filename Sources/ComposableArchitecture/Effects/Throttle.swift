@@ -31,55 +31,61 @@ extension Effect {
     id: ID,
     for interval: S.SchedulerTimeType.Stride,
     scheduler: S,
-    latest: Bool
+    latest: Bool,
+    fileID: StaticString = #file,
+    line: UInt = #line
   ) -> Self {
     switch self.operation {
     case .none:
       return .none
 
     case .run:
-      return .publisher { _EffectPublisher(self) }
-        .throttle(id: id, for: interval, scheduler: scheduler, latest: latest)
+      return .publisher({ _EffectPublisher(self) }, fileID: fileID, line: line)
+        .throttle(id: id, for: interval, scheduler: scheduler, latest: latest, fileID: fileID, line: line)
 
     case let .publisher(publisher):
-      return .publisher {
-        publisher
-          .receive(on: scheduler)
-          .flatMap { value -> AnyPublisher<Action, Never> in
-            throttleLock.lock()
-            defer { throttleLock.unlock() }
+      return .publisher(
+        {
+          publisher
+            .receive(on: scheduler)
+            .flatMap { value -> AnyPublisher<Action, Never> in
+              throttleLock.lock()
+              defer { throttleLock.unlock() }
 
-            guard let throttleTime = throttleTimes[id] as! S.SchedulerTimeType? else {
-              throttleTimes[id] = scheduler.now
-              throttleValues[id] = nil
-              return Just(value).eraseToAnyPublisher()
-            }
+              guard let throttleTime = throttleTimes[id] as! S.SchedulerTimeType? else {
+                throttleTimes[id] = scheduler.now
+                throttleValues[id] = nil
+                return Just(value).eraseToAnyPublisher()
+              }
 
-            let value = latest ? value : (throttleValues[id] as! Action? ?? value)
-            throttleValues[id] = value
+              let value = latest ? value : (throttleValues[id] as! Action? ?? value)
+              throttleValues[id] = value
 
-            guard throttleTime.distance(to: scheduler.now) < interval else {
-              throttleTimes[id] = scheduler.now
-              throttleValues[id] = nil
-              return Just(value).eraseToAnyPublisher()
-            }
+              guard throttleTime.distance(to: scheduler.now) < interval else {
+                throttleTimes[id] = scheduler.now
+                throttleValues[id] = nil
+                return Just(value).eraseToAnyPublisher()
+              }
 
-            return Just(value)
-              .delay(
-                for: scheduler.now.distance(to: throttleTime.advanced(by: interval)),
-                scheduler: scheduler
-              )
-              .handleEvents(
-                receiveOutput: { _ in
-                  throttleLock.sync {
-                    throttleTimes[id] = scheduler.now
-                    throttleValues[id] = nil
+              return Just(value)
+                .delay(
+                  for: scheduler.now.distance(to: throttleTime.advanced(by: interval)),
+                  scheduler: scheduler
+                )
+                .handleEvents(
+                  receiveOutput: { _ in
+                    throttleLock.sync {
+                      throttleTimes[id] = scheduler.now
+                      throttleValues[id] = nil
+                    }
                   }
-                }
-              )
-              .eraseToAnyPublisher()
-          }
-      }
+                )
+                .eraseToAnyPublisher()
+            }
+        },
+        fileID: fileID,
+        line: line
+      )
       .cancellable(id: id, cancelInFlight: true)
     }
   }

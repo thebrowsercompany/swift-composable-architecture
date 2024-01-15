@@ -48,7 +48,8 @@ extension Effect {
             .delay(for: dueTime, scheduler: scheduler, options: options)
             .flatMap { _EffectPublisher(self).receive(on: scheduler) }
             .eraseToAnyPublisher()
-        )
+        ),
+        fingerprints: fingerprints
       )
       .cancellable(id: id, cancelInFlight: true)
     }

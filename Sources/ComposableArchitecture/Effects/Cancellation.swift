@@ -40,6 +40,25 @@ extension Effect {
   public func cancellable<ID: Hashable>(id: ID, cancelInFlight: Bool = false) -> Self {
     @Dependency(\.navigationIDPath) var navigationIDPath
 
+    #if DEBUG
+    let fingerprintIDs = self.fingerprints.map(\.id)
+    let registerFingerprints = {
+      _fingerprintsLock.sync {
+        _fingerprints.registerFingerprintIDs(fingerprintIDs, forCancelID: id)
+      }
+    }
+    let removeInFlightFingerprints = {
+      _fingerprintsLock.sync {
+        _ = _fingerprints.removeAllFingerprintIDs(forCancelID: id)
+      }
+    }
+    let removeFingerprints = {
+      _fingerprintsLock.sync {
+        _fingerprints.removeFingerprintIDs(fingerprintIDs, forCancelID: id)
+      }
+    }
+    #endif
+
     switch self.operation {
     case .none:
       return .none
@@ -53,6 +72,14 @@ extension Effect {
                   AnyPublisher<Action, Never>, PassthroughSubject<Void, Never>
                 >
               > in
+
+            #if DEBUG
+            if cancelInFlight {
+              removeInFlightFingerprints()
+            }
+            registerFingerprints()
+            #endif
+
             _cancellablesLock.lock()
             defer { _cancellablesLock.unlock() }
 
@@ -69,6 +96,9 @@ extension Effect {
                 cancellationSubject.send(completion: .finished)
                 _cancellationCancellables.remove(cancellable, at: id, path: navigationIDPath)
               }
+              #if DEBUG
+              removeFingerprints()
+              #endif
             }
 
             return publisher.prefix(untilOutputFrom: cancellationSubject)
@@ -83,18 +113,29 @@ extension Effect {
               )
           }
           .eraseToAnyPublisher()
-        )
+        ),
+        fingerprints: fingerprints
       )
     case let .run(priority, operation):
       return withEscapedDependencies { continuation in
         return Self(
           operation: .run(priority) { send in
             await continuation.yield {
+              #if DEBUG
+              if cancelInFlight {
+                removeInFlightFingerprints()
+              }
+              registerFingerprints()
+              defer {
+                removeFingerprints()
+              }
+              #endif
               await withTaskCancellation(id: id, cancelInFlight: cancelInFlight) {
                 await operation(send)
               }
             }
-          }
+          },
+          fingerprints: fingerprints
         )
       }
     }

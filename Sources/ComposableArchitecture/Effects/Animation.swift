@@ -46,7 +46,8 @@ extension Effect {
       return Self(
         operation: .publisher(
           TransactionPublisher(upstream: publisher, transaction: transaction).eraseToAnyPublisher()
-        )
+        ),
+        fingerprints: fingerprints
       )
     case let .run(priority, operation):
       return Self(
@@ -58,7 +59,8 @@ extension Effect {
               }
             }
           )
-        }
+        },
+        fingerprints: fingerprints
       )
     }
   }

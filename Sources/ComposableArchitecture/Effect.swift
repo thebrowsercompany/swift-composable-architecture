@@ -20,10 +20,28 @@ public struct Effect<Action> {
   @usableFromInline
   let operation: Operation
 
+  #if DEBUG
+
   @usableFromInline
-  init(operation: Operation) {
+  let fingerprints: [Fingerprint]
+
+  @usableFromInline
+  init(operation: Operation, fingerprints: [Fingerprint] = []) {
+    self.operation = operation
+    self.fingerprints = fingerprints
+  }
+
+  #else
+
+  @usableFromInline
+  let fingerprints: Void
+
+  @usableFromInline
+    init(operation: Operation, fingerprints: Void = ()) {
     self.operation = operation
   }
+
+  #endif
 }
 
 /// A convenience type alias for referring to an effect of a given reducer's domain.
@@ -94,9 +112,24 @@ extension Effect {
     fileID: StaticString = #fileID,
     line: UInt = #line
   ) -> Self {
-    withEscapedDependencies { escaped in
+    #if DEBUG
+    let fingerprint = _fingerprintsLock.sync { 
+      _fingerprints.addFingerprint(fileID: fileID, line: line)
+    }
+    let fingerprints = [fingerprint]
+    #else
+    let fingerprints: Void
+    #endif
+    return withEscapedDependencies { escaped in
       Self(
         operation: .run(priority) { send in
+          #if DEBUG
+          defer {
+            _fingerprintsLock.sync {
+              _fingerprints.removeFingerprint(id: fingerprint.id)
+            }
+          }
+          #endif
           await escaped.yield {
             do {
               try await operation(send)
@@ -123,7 +156,8 @@ extension Effect {
               await handler(error, send)
             }
           }
-        }
+        },
+        fingerprints: fingerprints
       )
     }
   }
@@ -137,8 +171,12 @@ extension Effect {
   /// > For more information, see <doc:Performance#Sharing-logic-with-actions>.
   ///
   /// - Parameter action: The action that is immediately emitted by the effect.
-  public static func send(_ action: Action) -> Self {
-    Self(operation: .publisher(Just(action).eraseToAnyPublisher()))
+  public static func send(
+    _ action: Action,
+    fileID: StaticString = #fileID,
+    line: UInt = #line
+  ) -> Self {
+      .publisher({ Just(action).eraseToAnyPublisher() }, fileID: fileID, line: line)
   }
 
   #if canImport(SwiftUI)
@@ -154,8 +192,13 @@ extension Effect {
   /// - Parameters:
   ///   - action: The action that is immediately emitted by the effect.
   ///   - animation: An animation.
-  public static func send(_ action: Action, animation: Animation? = nil) -> Self {
-    .send(action).animation(animation)
+  public static func send(
+    _ action: Action,
+    animation: Animation?,
+    fileID: StaticString = #fileID,
+    line: UInt = #line
+  ) -> Self {
+    .send(action, fileID: fileID, line: line).animation(animation)
   }
   
   #endif
@@ -260,6 +303,11 @@ extension Effect {
   /// - Returns: An effect that runs this effect and the other at the same time.
   @inlinable
   public func merge(with other: Self) -> Self {
+    #if DEBUG
+    let fingerprints = self.fingerprints + other.fingerprints
+    #else
+    let fingerprints: Void = ()
+    #endif
     switch (self.operation, other.operation) {
     case (_, .none):
       return self
@@ -273,7 +321,8 @@ extension Effect {
             _EffectPublisher(other)
           )
           .eraseToAnyPublisher()
-        )
+        ),
+        fingerprints: fingerprints
       )
     case let (.run(lhsPriority, lhsOperation), .run(rhsPriority, rhsOperation)):
       return Self(
@@ -286,7 +335,8 @@ extension Effect {
               await rhsOperation(send)
             }
           }
-        }
+        },
+        fingerprints: fingerprints
       )
     }
   }
@@ -320,6 +370,11 @@ extension Effect {
   @inlinable
   @_disfavoredOverload
   public func concatenate(with other: Self) -> Self {
+    #if DEBUG
+    let fingerprints = self.fingerprints + other.fingerprints
+    #else
+    let fingerprints: Void = ()
+    #endif
     switch (self.operation, other.operation) {
     case (_, .none):
       return self
@@ -333,7 +388,8 @@ extension Effect {
             suffix: _EffectPublisher(other)
           )
           .eraseToAnyPublisher()
-        )
+        ),
+        fingerprints: fingerprints
       )
     case let (.run(lhsPriority, lhsOperation), .run(rhsPriority, rhsOperation)):
       return Self(
@@ -348,7 +404,8 @@ extension Effect {
           } else {
             await rhsOperation(send)
           }
-        }
+        },
+        fingerprints: fingerprints
       )
     }
   }
@@ -377,7 +434,8 @@ extension Effect {
               }
             )
             .eraseToAnyPublisher()
-        )
+        ),
+        fingerprints: fingerprints
       )
     case let .run(priority, operation):
       return withEscapedDependencies { escaped in
@@ -390,7 +448,8 @@ extension Effect {
                 }
               )
             }
-          }
+          },
+          fingerprints: fingerprints
         )
       }
     }

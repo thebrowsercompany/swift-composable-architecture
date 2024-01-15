@@ -113,7 +113,8 @@ extension Effect {
             }
           )
           .eraseToAnyPublisher()
-        )
+        ),
+        fingerprints: fingerprints
       )
     case let .run(priority, operation):
       return .init(
@@ -134,7 +135,8 @@ extension Effect {
             os_signpost(.end, log: log, name: "Effect", signpostID: sid, "%sCancelled", prefix)
           }
           os_signpost(.end, log: log, name: "Effect", signpostID: sid, "%sFinished", prefix)
-        }
+        },
+        fingerprints: fingerprints
       )
     }
   }

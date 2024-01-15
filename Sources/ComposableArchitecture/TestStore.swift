@@ -612,6 +612,21 @@ public final class TestStore<State, Action> {
     while !self.reducer.inFlightEffects.isEmpty {
       guard start.distance(to: DispatchTime.now().uptimeNanoseconds) < nanoseconds
       else {
+        #if DEBUG
+        let fingerprints = _fingerprintsLock.sync {
+          _fingerprints.filter(fingerprints: self.reducer.inFlightEffects.flatMap(\.fingerprints))
+        }
+        let fingerprintsList = fingerprints.map { "\t• \($0.fileID) @ line \($0.line)" }.joined(separator: "\n")
+        let fingerprintsMessage = """
+
+          The fingerprints of the in-flight effects:
+
+          \(fingerprintsList)
+
+          """
+        #else
+        let fingerprintsMessage = ""
+        #endif
         let timeoutMessage =
           nanoseconds != self.timeout
           ? #"try increasing the duration of this assertion's "timeout""#
@@ -625,6 +640,7 @@ public final class TestStore<State, Action> {
 
           If you are not yet using a clock/scheduler, or can not use a clock/scheduler, \
           \(timeoutMessage).
+          \(fingerprintsMessage)
           """
         XCTFailHelper(
           """
@@ -2107,8 +2123,8 @@ class TestReducer<State, Action>: Reducer {
       return .none
 
     case .publisher, .run:
-      let effect = LongLivingEffect(action: action)
-      return .publisher { [effectDidSubscribe, weak self] in
+      let effect = LongLivingEffect(action: action, fingerprints: effects.fingerprints)
+      return ._publisher(registerFingerprint: false) { [effectDidSubscribe, weak self] in
         _EffectPublisher(effects)
           .handleEvents(
             receiveSubscription: { _ in
@@ -2133,6 +2149,11 @@ class TestReducer<State, Action>: Reducer {
   struct LongLivingEffect: Hashable {
     let id = UUID()
     let action: TestAction
+    #if DEBUG
+    let fingerprints: [Fingerprint]
+    #else
+    let fingerprints: Void
+    #endif
 
     static func == (lhs: Self, rhs: Self) -> Bool {
       lhs.id == rhs.id
