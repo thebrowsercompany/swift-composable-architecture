@@ -534,6 +534,7 @@ public final class Store<State, Action> {
             .handleEvents(
               receiveCancel: { [weak self] in
                 self?.threadCheck(status: .effectCompletion(action))
+                print("[TCA] Removing cancellable for `.publisher` effect \(uuid) (\(file) @ line \(line))")
                 self?.effectCancellables[uuid] = nil
               }
             )
@@ -542,10 +543,14 @@ public final class Store<State, Action> {
                 self?.threadCheck(status: .effectCompletion(action))
                 boxedTask.wrappedValue?.cancel()
                 didComplete = true
+                print("[TCA] Removing cancellable for `.publisher` effect \(uuid) (\(file) @ line \(line))")
                 self?.effectCancellables[uuid] = nil
               },
               receiveValue: { [weak self] effectAction in
-                guard let self = self else { return }
+                guard let self = self else {
+                  print("[TCA] Unable to send action for `.publisher` effect \(uuid) (\(file) @ line \(line))")
+                  return
+                }
                 if let task = continuation.yield({
                   self.send(effectAction, originatingFrom: action)
                 }) {
@@ -562,6 +567,7 @@ public final class Store<State, Action> {
           }
           boxedTask.wrappedValue = task
           tasks.wrappedValue.append(task)
+          print("[TCA] Adding cancellable for `.publisher` effect \(uuid) (\(file) @ line \(line))")
           self.effectCancellables[uuid] = effectCancellable
         }
       case let .run(priority, operation):
@@ -602,10 +608,14 @@ public final class Store<State, Action> {
                 }
               }
             )
+            print("[TCA] Removing cancellable for `.run` effect \(uuid) (\(file) @ line \(line))")
             self?.effectCancellables[uuid] = nil
           }
           tasks.wrappedValue.append(task)
-          self.effectCancellables[uuid] = AnyCancellable { task.cancel() }
+          print("[TCA] Adding cancellable for `.run` effect \(uuid) (\(file) @ line \(line))")
+          self.effectCancellables[uuid] = AnyCancellable {
+            task.cancel()
+          }
         }
       }
     }
