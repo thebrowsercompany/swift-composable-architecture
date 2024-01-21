@@ -521,13 +521,14 @@ public final class Store<State, Action> {
       defer { instrumentation.callback?(processCallbackInfo, .post, .storeProcessEvent) }
       let effect = self.reducer.reduce(into: &currentState, action: action)
 
+      let uuid = UUID()
+
       switch effect.operation {
       case .none:
         break
       case let .publisher(publisher):
         var didComplete = false
         let boxedTask = Box<Task<Void, Never>?>(wrappedValue: nil)
-        let uuid = UUID()
         let effectCancellable = withEscapedDependencies { continuation in
           publisher
             .handleEvents(
@@ -565,45 +566,46 @@ public final class Store<State, Action> {
         }
       case let .run(priority, operation):
         withEscapedDependencies { continuation in
-          tasks.wrappedValue.append(
-            Task(priority: priority) { @MainActor in
-              #if DEBUG
-                let isCompleted = LockIsolated(false)
-                defer { isCompleted.setValue(true) }
-              #endif
-              await operation(
-                Send { effectAction in
-                  #if DEBUG
-                    if isCompleted.value {
-                      runtimeWarn(
-                        """
-                        An action was sent from a completed effect:
+          let task = Task(priority: priority) { @MainActor [weak self] in
+            #if DEBUG
+              let isCompleted = LockIsolated(false)
+              defer { isCompleted.setValue(true) }
+            #endif
+            await operation(
+              Send { effectAction in
+                #if DEBUG
+                  if isCompleted.value {
+                    runtimeWarn(
+                      """
+                      An action was sent from a completed effect:
 
-                          Action:
-                            \(debugCaseOutput(effectAction))
+                        Action:
+                          \(debugCaseOutput(effectAction))
 
-                          Effect returned from:
-                            \(debugCaseOutput(action))
+                        Effect returned from:
+                          \(debugCaseOutput(action))
 
-                        Avoid sending actions using the 'send' argument from 'Effect.run' after \
-                        the effect has completed. This can happen if you escape the 'send' \
-                        argument in an unstructured context.
+                      Avoid sending actions using the 'send' argument from 'Effect.run' after \
+                      the effect has completed. This can happen if you escape the 'send' \
+                      argument in an unstructured context.
 
-                        To fix this, make sure that your 'run' closure does not return until \
-                        you're done calling 'send'.
-                        """
-                      )
-                    }
-                  #endif
-                  if let task = continuation.yield({
-                    self.send(effectAction, originatingFrom: action)
-                  }) {
-                    tasks.wrappedValue.append(task)
+                      To fix this, make sure that your 'run' closure does not return until \
+                      you're done calling 'send'.
+                      """
+                    )
                   }
+                #endif
+                if let task = continuation.yield({
+                  self?.send(effectAction, originatingFrom: action)
+                }) {
+                  tasks.wrappedValue.append(task)
                 }
-              )
-            }
-          )
+              }
+            )
+            self?.effectCancellables[uuid] = nil
+          }
+          tasks.wrappedValue.append(task)
+          self.effectCancellables[uuid] = AnyCancellable { task.cancel() }
         }
       }
     }
