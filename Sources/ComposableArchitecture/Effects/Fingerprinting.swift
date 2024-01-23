@@ -1,11 +1,10 @@
 #if DEBUG
 import Foundation
 
-@usableFromInline
-struct Fingerprint {
-  let id: UUID
-  let fileID: StaticString
-  let line: UInt
+public struct Fingerprint: Hashable {
+  public let id: UUID
+  public let fileID: String
+  public let line: UInt
 }
 
 @_spi(Internals) public let _fingerprints = _FingerprintsCollection()
@@ -27,7 +26,11 @@ public final class _FingerprintsCollection {
   var fingerprintIDsByCancelID: [CancelID: Set<UUID>] = [:]
 
   func addFingerprint(fileID: StaticString, line: UInt) -> Fingerprint {
-    let fingerprint = Fingerprint(id: UUID(), fileID: fileID, line: line)
+    let fingerprint = Fingerprint(
+      id: UUID(),
+      fileID: fileID.withUTF8Buffer { String(decoding: $0, as: UTF8.self) },
+      line: line
+    )
     self.storage[fingerprint.id] = fingerprint
     return fingerprint
   }
@@ -62,7 +65,7 @@ public final class _FingerprintsCollection {
   @discardableResult
   func removeAllFingerprintIDs<ID: Hashable>(forCancelID id: ID) -> Set<UUID>? {
     let cancelID = CancelID(id: id)
-    guard var fingerprintIDs = self.fingerprintIDsByCancelID.removeValue(forKey: cancelID) else { return nil }
+    guard let fingerprintIDs = self.fingerprintIDsByCancelID.removeValue(forKey: cancelID) else { return nil }
     fingerprintIDs.forEach(self.removeFingerprint(id:))
     return fingerprintIDs
   }

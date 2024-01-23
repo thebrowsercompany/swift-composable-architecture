@@ -141,7 +141,8 @@ public final class Store<State, Action> {
   private let reducer: any Reducer<State, Action>
   @_spi(Internals) public var state: CurrentValueSubject<State, Never>
   #if DEBUG
-    private let mainThreadChecksEnabled: Bool
+  private let mainThreadChecksEnabled: Bool
+  private var fingerprints: Set<Fingerprint> = []
   #endif
 
   public let instrumentation: Instrumentation
@@ -471,6 +472,24 @@ public final class Store<State, Action> {
     file: StaticString = #file,
     line: UInt = #line
   ) -> Task<Void, Never>? {
+    var fingerprints: [Fingerprint] = []
+    return self.send(
+      action,
+      originatingFrom: originatingAction,
+      fingerprints: &fingerprints,
+      file: file,
+      line: line
+    )
+  }
+
+  @_spi(Internals)
+  public func send(
+    _ action: Action,
+    originatingFrom originatingAction: Action?,
+    fingerprints: inout [Fingerprint],
+    file: StaticString = #file,
+    line: UInt = #line
+  ) -> Task<Void, Never>? {
     self.threadCheck(status: .send(action, originatingAction: originatingAction))
 
     self.bufferedActions.append(action)
@@ -520,6 +539,10 @@ public final class Store<State, Action> {
       instrumentation.callback?(processCallbackInfo, .pre, .storeProcessEvent)
       defer { instrumentation.callback?(processCallbackInfo, .post, .storeProcessEvent) }
       let effect = self.reducer.reduce(into: &currentState, action: action)
+      #if DEBUG
+      fingerprints.append(contentsOf: effect.fingerprints)
+      self.fingerprints.formUnion(effect.fingerprints)
+      #endif
 
       switch effect.operation {
       case .none:
@@ -534,6 +557,7 @@ public final class Store<State, Action> {
               receiveCancel: { [weak self] in
                 self?.threadCheck(status: .effectCompletion(action))
                 self?.effectCancellables[uuid] = nil
+                self?.fingerprints.subtract(effect.fingerprints)
               }
             )
             .sink(
@@ -542,6 +566,7 @@ public final class Store<State, Action> {
                 boxedTask.wrappedValue?.cancel()
                 didComplete = true
                 self?.effectCancellables[uuid] = nil
+                self?.fingerprints.subtract(effect.fingerprints)
               },
               receiveValue: { [weak self] effectAction in
                 guard let self = self else { return }
@@ -568,8 +593,11 @@ public final class Store<State, Action> {
           tasks.wrappedValue.append(
             Task(priority: priority) { @MainActor in
               #if DEBUG
-                let isCompleted = LockIsolated(false)
-                defer { isCompleted.setValue(true) }
+              let isCompleted = LockIsolated(false)
+              defer {
+                isCompleted.setValue(true)
+                self.fingerprints.subtract(effect.fingerprints)
+              }
               #endif
               await operation(
                 Send { effectAction in
@@ -625,6 +653,20 @@ public final class Store<State, Action> {
       }
     }
   }
+
+  #if DEBUG
+  public func inFlightEffectFingerprints() -> Set<Fingerprint> {
+    return _fingerprintsLock.sync {
+      return Set(_fingerprints.filter(fingerprints: self.fingerprints))
+    }
+  }
+
+  public static func allInFlightEffectFingerprints() -> Set<Fingerprint> {
+    return _fingerprintsLock.sync {
+      return Set(_fingerprints.storage.values)
+    }
+  }
+  #endif
 
   private enum ThreadCheckStatus {
     case effectCompletion(Action)
@@ -819,10 +861,14 @@ private final class ScopedReducer<RootState, RootAction, State, Action>: Reducer
       state = self.toScopedState(self.rootStore.state.value)
       self.isSending = false
     }
+    var fingerprints: [Fingerprint] = []
     if let action = self.fromScopedAction(state, action),
-      let task = self.rootStore.send(action, originatingFrom: nil)
+      let task = self.rootStore.send(action, originatingFrom: nil, fingerprints: &fingerprints)
     {
-      return .run { _ in await task.cancellableValue }
+      return Effect<Action>(
+        operation: .run { _ in await task.cancellableValue },
+        fingerprints: fingerprints
+      )
     } else {
       return .none
     }

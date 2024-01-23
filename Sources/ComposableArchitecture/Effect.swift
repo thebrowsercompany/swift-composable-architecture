@@ -113,8 +113,8 @@ extension Effect {
     line: UInt = #line
   ) -> Self {
     #if DEBUG
-    let fingerprint = _fingerprintsLock.sync { 
-      _fingerprints.addFingerprint(fileID: fileID, line: line)
+    let fingerprint = _fingerprintsLock.sync {
+      return _fingerprints.addFingerprint(fileID: fileID, line: line)
     }
     let fingerprints = [fingerprint]
     #else
