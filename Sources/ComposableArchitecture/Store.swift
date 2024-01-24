@@ -491,9 +491,15 @@ public final class Store<State, Action> {
     line: UInt = #line
   ) -> Task<Void, Never>? {
     self.threadCheck(status: .send(action, originatingAction: originatingAction))
+    
+    let logID = UUID().uuidString
+    print("\(Self.self).send: \(action) (\(file):\(line):\(logID))")
 
     self.bufferedActions.append(action)
-    guard !self.isSending else { return nil }
+    guard !self.isSending else {
+      print("\(Self.self).send: already sending! (\(logID))")
+      return nil
+    }
 
     let callbackInfo = Instrumentation.CallbackInfo(
       storeKind: Self.self,
@@ -511,24 +517,32 @@ public final class Store<State, Action> {
     defer {
       instrumentation.callback?(callbackInfo, .pre, .storeChangeState)
       defer { instrumentation.callback?(callbackInfo, .post, .storeChangeState) }
+      print("\(Self.self).send.defer: removing \(self.bufferedActions.count) bufferedActions (\(logID))")
       withExtendedLifetime(self.bufferedActions) {
         self.bufferedActions.removeAll()
       }
       self.state.value = currentState
       self.isSending = false
       if !self.bufferedActions.isEmpty {
+        print("\(Self.self).send.defer: sending one buffered action, possibly appending task \(tasks.wrappedValue.count) (\(logID))")
         if let task = self.send(
           self.bufferedActions.removeLast(), originatingFrom: originatingAction
         ) {
+          print("\(Self.self).send.defer: appending task \(tasks.wrappedValue.count) (\(logID))")
           tasks.wrappedValue.append(task)
         }
+      } else {
+        print("\(Self.self).send.defer: no bufferedActions to send (\(logID))")
       }
     }
+
+    print("\(Self.self).send: \(self.bufferedActions.count) bufferedActions to send (\(logID))")
 
     var index = self.bufferedActions.startIndex
     while index < self.bufferedActions.endIndex {
       defer { index += 1 }
       let action = self.bufferedActions[index]
+      print("\(Self.self).send: reducing buffered action \(index) \(action) (\(logID))")
       let processCallbackInfo = Instrumentation.CallbackInfo(
         storeKind: Self.self,
         action: action,
@@ -540,6 +554,16 @@ public final class Store<State, Action> {
       defer { instrumentation.callback?(processCallbackInfo, .post, .storeProcessEvent) }
       let effect = self.reducer.reduce(into: &currentState, action: action)
       #if DEBUG
+
+      let list = effect.fingerprints
+        .sorted { ($0.fileID, $0.line) < ($1.fileID, $1.line) }
+        .map { "\(Self.self): \t\tfingerprint \($0.fileID) @ line \($0.line)"}
+        .joined(separator: "\n")
+      print("""
+      \(Self.self).send: reduced buffered action \(index) (\(logID))
+      \(list)
+      """)
+
       fingerprints.append(contentsOf: effect.fingerprints)
       self.fingerprints.formUnion(effect.fingerprints)
       #endif
@@ -548,6 +572,7 @@ public final class Store<State, Action> {
       case .none:
         break
       case let .publisher(publisher):
+        print("\(Self.self).send: kicking off publisher effect (\(logID))")
         var didComplete = false
         let boxedTask = Box<Task<Void, Never>?>(wrappedValue: nil)
         let uuid = UUID()
@@ -555,6 +580,7 @@ public final class Store<State, Action> {
           publisher
             .handleEvents(
               receiveCancel: { [weak self] in
+                print("\(Self.self).send: publisher effect cancelled (\(logID))")
                 self?.threadCheck(status: .effectCompletion(action))
                 self?.effectCancellables[uuid] = nil
                 self?.fingerprints.subtract(effect.fingerprints)
@@ -562,6 +588,7 @@ public final class Store<State, Action> {
             )
             .sink(
               receiveCompletion: { [weak self] _ in
+                print("\(Self.self).send: publisher effect completed (\(logID))")
                 self?.threadCheck(status: .effectCompletion(action))
                 boxedTask.wrappedValue?.cancel()
                 didComplete = true
@@ -570,9 +597,11 @@ public final class Store<State, Action> {
               },
               receiveValue: { [weak self] effectAction in
                 guard let self = self else { return }
+                print("\(Self.self).send: publisher effect sent action, possibly appending task \(tasks.wrappedValue.count) (\(logID))")
                 if let task = continuation.yield({
                   self.send(effectAction, originatingFrom: action)
                 }) {
+                  print("\(Self.self).send: publisher effect appending task \(tasks.wrappedValue.count) (\(logID))")
                   tasks.wrappedValue.append(task)
                 }
               }
@@ -580,15 +609,18 @@ public final class Store<State, Action> {
         }
 
         if !didComplete {
+          print("\(Self.self).send: publisher effect didn't synchronously complete, appending task \(tasks.wrappedValue.count) (\(logID))")
           let task = Task<Void, Never> { @MainActor in
             for await _ in AsyncStream<Void>.never {}
             effectCancellable.cancel()
+            print("\(Self.self).send: publisher task finished (\(logID))")
           }
           boxedTask.wrappedValue = task
           tasks.wrappedValue.append(task)
           self.effectCancellables[uuid] = effectCancellable
         }
       case let .run(priority, operation):
+        print("\(Self.self).send: kicking off async effect (\(logID))")
         withEscapedDependencies { continuation in
           tasks.wrappedValue.append(
             Task(priority: priority) { @MainActor in
@@ -597,6 +629,7 @@ public final class Store<State, Action> {
               defer {
                 isCompleted.setValue(true)
                 self.fingerprints.subtract(effect.fingerprints)
+                print("\(Self.self).send: finished async effect (\(logID))")
               }
               #endif
               await operation(
@@ -623,9 +656,11 @@ public final class Store<State, Action> {
                       )
                     }
                   #endif
+                  print("\(Self.self).send: async effect sent action, possibly appending task \(tasks.wrappedValue.count) (\(logID))")
                   if let task = continuation.yield({
                     self.send(effectAction, originatingFrom: action)
                   }) {
+                    print("\(Self.self).send: async effect appending task \(tasks.wrappedValue.count) (\(logID))")
                     tasks.wrappedValue.append(task)
                   }
                 }
@@ -636,15 +671,23 @@ public final class Store<State, Action> {
       }
     }
 
-    guard !tasks.wrappedValue.isEmpty else { return nil }
+    guard !tasks.wrappedValue.isEmpty else {
+      print("\(Self.self).send: no additional tasks to await (\(logID))")
+      return nil
+    }
+    print("\(Self.self).send: \(tasks.wrappedValue.count) additional tasks to await (\(logID))")
+
     return Task { @MainActor in
       await withTaskCancellationHandler {
         var index = tasks.wrappedValue.startIndex
         while index < tasks.wrappedValue.endIndex {
-          defer { index += 1 }
+          print("\(Self.self).send: await additional task \(index) of \(tasks.wrappedValue.count) (\(logID))")
           await tasks.wrappedValue[index].value
+          print("\(Self.self).send: finished additional task \(index) of \(tasks.wrappedValue.count) (\(logID))")
+          index += 1
         }
       } onCancel: {
+        print("\(Self.self).send: cancelling additional tasks (\(logID))")
         var index = tasks.wrappedValue.startIndex
         while index < tasks.wrappedValue.endIndex {
           defer { index += 1 }
