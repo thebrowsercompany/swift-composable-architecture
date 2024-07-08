@@ -8,11 +8,17 @@ public final class RootStore {
   @_spi(Internals) public var effectCancellables: [UUID: AnyCancellable] = [:]
   private var isSending = false
   private let reducer: any Reducer
+
   private(set) var state: Any {
+    willSet {
+      stateCache.removeAll(keepingCapacity: true)
+    }
     didSet {
       didSet.send(())
     }
   }
+
+  var stateCache: [AnyKeyPath: Any] = [:]
 
   init<State, Action>(
     initialState: State,

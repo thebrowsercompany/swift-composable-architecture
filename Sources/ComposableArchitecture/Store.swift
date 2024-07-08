@@ -422,7 +422,7 @@ public final class Store<State, Action> {
   @_spi(Internals)
   public var currentState: State {
     threadCheck(status: .state)
-    return self.toState(self.rootStore.state)
+    return self.toState.extract(from: self.rootStore.state, cache: &self.rootStore.stateCache)
   }
 
   @_spi(Internals)
@@ -734,6 +734,27 @@ private enum PartialToState<State> {
   case closure((Any) -> State)
   case keyPath(AnyKeyPath)
   case appended((Any) -> Any, AnyKeyPath)
+  case prepended(AnyKeyPath, (Any) -> Any)
+
+  func extract(from state: Any, cache: inout [AnyKeyPath: Any]) -> State {
+    switch self {
+    case let .keyPath(keyPath):
+      if let cachedValue: Any = cache[keyPath] { return cachedValue as! State }
+      let value = state[keyPath: keyPath] as! State
+      cache[keyPath] = value
+      return value
+    case let .prepended(keyPath, closure):
+      let value: Any = cache[keyPath] ?? {
+        let value = state[keyPath: keyPath] as Any
+        cache[keyPath] = value
+        return value
+      }()
+      return closure(value) as! State
+    default:
+      return self(state)
+    }
+  }
+
   func callAsFunction(_ state: Any) -> State {
     switch self {
     case let .closure(closure):
@@ -742,16 +763,25 @@ private enum PartialToState<State> {
       return state[keyPath: keyPath] as! State
     case let .appended(closure, keyPath):
       return closure(state)[keyPath: keyPath] as! State
+    case let .prepended(keyPath, closure):
+      return closure(state[keyPath: keyPath] as Any) as! State
     }
   }
+
   func appending<ChildState>(_ state: PartialToState<ChildState>) -> PartialToState<ChildState> {
     switch (self, state) {
     case let (.keyPath(lhs), .keyPath(rhs)):
       return .keyPath(lhs.appending(path: rhs)!)
     case let (.closure(lhs), .keyPath(rhs)):
       return .appended(lhs, rhs)
+    case let (.keyPath(lhs), .closure(rhs)):
+      return .prepended(lhs, rhs)
     case let (.appended(lhsClosure, lhsKeyPath), .keyPath(rhs)):
       return .appended(lhsClosure, lhsKeyPath.appending(path: rhs)!)
+    case let (.keyPath(lhs), .prepended(rhsKeyPath, rhsClosure)):
+      return .prepended(lhs.appending(path: rhsKeyPath)!, rhsClosure)
+    case let (.prepended(lhsKeyPath, lhsClosure), _):
+      return .prepended(lhsKeyPath, { state(lhsClosure($0)) })
     default:
       return .closure { state(self($0)) }
     }
