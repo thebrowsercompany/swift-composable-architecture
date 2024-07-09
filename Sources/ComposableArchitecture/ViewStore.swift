@@ -74,6 +74,40 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   #endif
   let store: Store<ViewState, ViewAction>
 
+  init<State, Action>(
+    _ store: Store<State, Action>,
+    scopedStore: Store<ViewState, ViewAction>,
+    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool
+  ) {
+    #if DEBUG
+      self.storeTypeName = ComposableArchitecture.storeTypeName(of: store)
+      Logger.shared.log("View\(self.storeTypeName).init")
+    #endif
+    self.store = scopedStore
+    self._state = CurrentValueRelay(self.store.currentState)
+    self.viewCancellable = self.store.rootStore.didSet
+      .compactMap { [weak self] in self?.store.currentState }
+      .removeDuplicates(by: isDuplicate)
+      .dropFirst()
+      .sink { [weak self] in
+        self?.objectWillChange.send()
+        self?._state.value = $0
+      }
+  }
+
+  public convenience init<State, Action>(
+    _ store: Store<State, Action>,
+    observe toViewState: KeyPath<State, ViewState>,
+    send fromViewAction: CaseKeyPath<Action, ViewAction>,
+    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool
+  ) {
+    self.init(
+      store,
+      scopedStore: store.scope(state: toViewState, action: fromViewAction),
+      removeDuplicates: isDuplicate
+    )
+  }
+
   /// Initializes a view store from a store which observes changes to state.
   ///
   /// It is recommended that the `observe` argument transform the store's state into the bare
@@ -88,6 +122,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   ///   changes.
   ///   - isDuplicate: A function to determine when two `State` values are equal. When values are
   ///   equal, repeat view computations are removed.
+  @_disfavoredOverload
   public convenience init<State>(
     _ store: Store<State, ViewAction>,
     observe toViewState: @escaping (_ state: State) -> ViewState,
@@ -97,6 +132,19 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       store,
       observe: toViewState,
       send: { $0 },
+      removeDuplicates: isDuplicate
+    )
+  }
+
+  public convenience init<State>(
+    _ store: Store<State, ViewAction>,
+    observe toViewState: KeyPath<State, ViewState>,
+    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool
+  ) {
+    self.init(
+      store,
+      observe: toViewState,
+      send: \.self,
       removeDuplicates: isDuplicate
     )
   }
@@ -116,26 +164,18 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   ///   - fromViewAction: A transformation of `ViewAction` that describes what actions can be sent.
   ///   - isDuplicate: A function to determine when two `State` values are equal. When values are
   ///   equal, repeat view computations are removed.
-  public init<State, Action>(
+  @_disfavoredOverload
+  public convenience init<State, Action>(
     _ store: Store<State, Action>,
     observe toViewState: @escaping (_ state: State) -> ViewState,
     send fromViewAction: @escaping (_ viewAction: ViewAction) -> Action,
     removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool
   ) {
-    #if DEBUG
-      self.storeTypeName = ComposableArchitecture.storeTypeName(of: store)
-      Logger.shared.log("View\(self.storeTypeName).init")
-    #endif
-    self.store = store.scope(state: toViewState, action: fromViewAction)
-    self._state = CurrentValueRelay(self.store.currentState)
-    self.viewCancellable = self.store.rootStore.didSet
-      .compactMap { [weak self] in self?.store.currentState }
-      .removeDuplicates(by: isDuplicate)
-      .dropFirst()
-      .sink { [weak self] in
-        self?.objectWillChange.send()
-        self?._state.value = $0
-      }
+    self.init(
+      store,
+      scopedStore: store.scope(state: toViewState, action: fromViewAction),
+      removeDuplicates: isDuplicate
+    )
   }
 
   init(_ viewStore: ViewStore<ViewState, ViewAction>) {
@@ -570,9 +610,17 @@ extension ViewStore where ViewState: Equatable {
   ///   - store: A store.
   ///   - toViewState: A transformation of `ViewState` to the state that will be observed for
   ///   changes.
+  @_disfavoredOverload
   public convenience init<State>(
     _ store: Store<State, ViewAction>,
     observe toViewState: @escaping (_ state: State) -> ViewState
+  ) {
+    self.init(store, observe: toViewState, removeDuplicates: ==)
+  }
+
+  public convenience init<State>(
+    _ store: Store<State, ViewAction>,
+    observe toViewState: KeyPath<State, ViewState>
   ) {
     self.init(store, observe: toViewState, removeDuplicates: ==)
   }
@@ -590,10 +638,19 @@ extension ViewStore where ViewState: Equatable {
   ///   - toViewState: A transformation of `ViewState` to the state that will be observed for
   ///   changes.
   ///   - fromViewAction: A transformation of `ViewAction` that describes what actions can be sent.
+  @_disfavoredOverload
   public convenience init<State, Action>(
     _ store: Store<State, Action>,
     observe toViewState: @escaping (_ state: State) -> ViewState,
     send fromViewAction: @escaping (_ viewAction: ViewAction) -> Action
+  ) {
+    self.init(store, observe: toViewState, send: fromViewAction, removeDuplicates: ==)
+  }
+
+  public convenience init<State, Action>(
+    _ store: Store<State, Action>,
+    observe toViewState: KeyPath<State, ViewState>,
+    send fromViewAction: CaseKeyPath<Action, ViewAction>
   ) {
     self.init(store, observe: toViewState, send: fromViewAction, removeDuplicates: ==)
   }
